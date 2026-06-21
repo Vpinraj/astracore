@@ -1,11 +1,15 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Wallet, Landmark, TrendingDown, Network } from 'lucide-react';
+import { Wallet, Landmark, TrendingDown, Network, RefreshCw } from 'lucide-react';
 import { Card } from './ui/Card';
 import { ThemeToggle } from './ThemeToggle';
 
-export const Header: React.FC = () => {
-  const { subsidiaries, agents } = useApp();
+interface HeaderProps {
+  showMetrics?: boolean;
+}
+
+export const Header: React.FC<HeaderProps> = ({ showMetrics = true }) => {
+  const { subsidiaries, agents, isSyncing, syncError, lastSyncedAt, resetState } = useApp();
 
   const totalInvestments = subsidiaries.reduce((sum, s) => sum + s.investment, 0);
   const totalExpenses = subsidiaries.reduce((sum, s) => sum + s.expenses, 0);
@@ -16,7 +20,7 @@ export const Header: React.FC = () => {
   const metrics = [
     {
       label: 'Total Investments',
-      value: `$${totalInvestments.toLocaleString()}`,
+      value: `₹${totalInvestments.toLocaleString()}`,
       sub: 'Allocated seed funds',
       icon: Wallet,
       color: 'blue',
@@ -24,7 +28,7 @@ export const Header: React.FC = () => {
     },
     {
       label: 'Total Expenses',
-      value: `$${totalExpenses.toLocaleString()}`,
+      value: `₹${totalExpenses.toLocaleString()}`,
       sub: 'Agent costs & task deployment',
       icon: TrendingDown,
       color: 'rose',
@@ -32,8 +36,8 @@ export const Header: React.FC = () => {
     },
     {
       label: 'Net Profits',
-      value: `$${totalProfits.toLocaleString()}`,
-      sub: `Net Earnings: $${netEarnings.toLocaleString()}`,
+      value: `₹${totalProfits.toLocaleString()}`,
+      sub: `Net Earnings: ₹${netEarnings.toLocaleString()}`,
       icon: Landmark,
       color: 'emerald',
       textColor: 'text-emerald-400',
@@ -58,43 +62,87 @@ export const Header: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 md:gap-3">
           <ThemeToggle />
+          
+          {/* Database Sync Status Badge */}
+          <div className={`flex px-3 py-1.5 rounded-lg border text-xs font-mono items-center gap-2 ${
+            syncError 
+              ? 'border-rose-500/30 bg-rose-950/20 text-rose-400' 
+              : isSyncing 
+                ? 'border-indigo-500/30 bg-indigo-950/20 text-indigo-400' 
+                : 'border-zinc-800 bg-zinc-900/40 text-zinc-400'
+          }`}>
+            {syncError ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                <span>DB Offline</span>
+              </>
+            ) : isSyncing ? (
+              <>
+                <span className="w-1 h-1 rounded-full bg-indigo-400 animate-ping" />
+                <span>Syncing DB...</span>
+              </>
+            ) : (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="hidden sm:inline">DB Synced {lastSyncedAt ? `@ ${lastSyncedAt.toLocaleTimeString()}` : ''}</span>
+                <span className="sm:hidden">Synced</span>
+              </>
+            )}
+          </div>
+
+          {/* Reset DB Button */}
+          <button 
+            onClick={() => {
+              if (window.confirm("Are you sure you want to reset the database to the default seed state? All custom subsidiaries, hired agents, and active tasks will be overwritten.")) {
+                resetState();
+              }
+            }}
+            disabled={isSyncing}
+            className="flex px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800 hover:border-zinc-700 active:scale-95 disabled:opacity-50 transition-all text-xs font-mono text-zinc-400 items-center gap-1.5 cursor-pointer"
+            title="Reset database to default seed state"
+          >
+            <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
+            <span className="hidden sm:inline">Reset DB</span>
+          </button>
+
           {/* Condensed runtime badge — hidden on very small screens */}
-          <div className="hidden sm:flex px-3.5 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-xs font-mono text-zinc-400 items-center gap-2">
+          <div className="hidden md:flex px-3.5 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-xs font-mono text-zinc-400 items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping" />
-            <span className="hidden lg:inline">VIRTUAL CEO RUNTIME v4.0.2</span>
-            <span className="lg:hidden">v4.0.2</span>
+            <span>VIRTUAL CEO RUNTIME v4.0.2</span>
           </div>
         </div>
       </div>
 
       {/* Metric Cards Row — 2 columns on mobile, 4 on desktop */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        {metrics.map((m, idx) => {
-          const Icon = m.icon;
-          return (
-            <Card
-              key={idx}
-              glow
-              glowColor={m.color as any}
-              className="p-3 md:p-4 bg-zinc-950/40"
-            >
-              <div className="flex items-start justify-between">
-                <div className="min-w-0">
-                  <span className="text-[10px] md:text-xs font-medium text-zinc-400 leading-tight block">{m.label}</span>
-                  <div className={`text-base md:text-xl font-bold font-mono tracking-tight mt-1 md:mt-1.5 ${m.textColor} truncate`}>
-                    {m.value}
+      {showMetrics && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          {metrics.map((m, idx) => {
+            const Icon = m.icon;
+            return (
+              <Card
+                key={idx}
+                glow
+                glowColor={m.color as any}
+                className="p-3 md:p-4 bg-zinc-950/40"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0">
+                    <span className="text-[10px] md:text-xs font-medium text-zinc-400 leading-tight block">{m.label}</span>
+                    <div className={`text-base md:text-xl font-bold font-mono tracking-tight mt-1 md:mt-1.5 ${m.textColor} truncate`}>
+                      {m.value}
+                    </div>
+                    <span className="text-[9px] md:text-[10px] text-zinc-500 mt-0.5 md:mt-1 block truncate">{m.sub}</span>
                   </div>
-                  <span className="text-[9px] md:text-[10px] text-zinc-500 mt-0.5 md:mt-1 block truncate">{m.sub}</span>
+                  <div className={`p-2 md:p-2.5 rounded-lg bg-zinc-900/80 border border-zinc-800 ${m.textColor} shrink-0 ml-2`}>
+                    <Icon size={15} className="md:hidden" />
+                    <Icon size={18} className="hidden md:block" />
+                  </div>
                 </div>
-                <div className={`p-2 md:p-2.5 rounded-lg bg-zinc-900/80 border border-zinc-800 ${m.textColor} shrink-0 ml-2`}>
-                  <Icon size={15} className="md:hidden" />
-                  <Icon size={18} className="hidden md:block" />
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </header>
   );
 };

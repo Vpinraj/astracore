@@ -19,8 +19,8 @@ export const SubsidiaryGrid: React.FC<SubsidiaryGridProps> = ({ onViewDetails })
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedSubId, setSelectedSubId] = useState<string>('');
 
-  // calculate total profit across all subsidiaries for contribution calculation
-  const totalProfits = subsidiaries.reduce((sum, s) => sum + s.profits, 0) || 1; // avoid divide by zero
+  const businessSubs = subsidiaries.filter(s => s.id !== 'common');
+  const totalProfits = businessSubs.reduce((sum, s) => sum + s.profits, 0) || 1; // avoid divide by zero
 
   const getDynamicIcon = (iconName: string) => {
     const Icon = (Icons as any)[iconName];
@@ -68,7 +68,7 @@ export const SubsidiaryGrid: React.FC<SubsidiaryGridProps> = ({ onViewDetails })
 
       {/* Grid of subsidiaries — 1 col mobile, 2 col md, 3 col lg */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {subsidiaries.map((sub) => {
+        {businessSubs.map((sub) => {
           const subAgents = agents.filter((a) => a.subsidiaryId === sub.id);
           const subTasks = tasks.filter((t) => t.subsidiaryId === sub.id);
           const activeSubTasks = subTasks.filter((t) => t.status === 'in_progress');
@@ -99,7 +99,7 @@ export const SubsidiaryGrid: React.FC<SubsidiaryGridProps> = ({ onViewDetails })
                 </div>
                 <div className="text-right shrink-0 ml-2">
                   <span className="text-[10px] font-mono text-zinc-500">Balance</span>
-                  <div className="text-xs font-mono font-bold text-zinc-100 mt-0.5">${sub.balance.toLocaleString()}</div>
+                  <div className="text-xs font-mono font-bold text-zinc-100 mt-0.5">₹{sub.balance.toLocaleString()}</div>
                 </div>
               </div>
 
@@ -107,15 +107,15 @@ export const SubsidiaryGrid: React.FC<SubsidiaryGridProps> = ({ onViewDetails })
               <div className="grid grid-cols-3 gap-2 py-3 border-y border-zinc-900/60 my-2 text-[10px] font-mono">
                 <div>
                   <span className="text-zinc-500">Investments</span>
-                  <p className="text-zinc-300 font-semibold mt-0.5">${sub.investment.toLocaleString()}</p>
+                  <p className="text-zinc-300 font-semibold mt-0.5">₹{sub.investment.toLocaleString()}</p>
                 </div>
                 <div>
                   <span className="text-zinc-500">Expenses</span>
-                  <p className="text-rose-400 font-semibold mt-0.5">${sub.expenses.toLocaleString()}</p>
+                  <p className="text-rose-400 font-semibold mt-0.5">₹{sub.expenses.toLocaleString()}</p>
                 </div>
                 <div>
                   <span className="text-zinc-500">Profits</span>
-                  <p className="text-emerald-400 font-semibold mt-0.5">${sub.profits.toLocaleString()}</p>
+                  <p className="text-emerald-400 font-semibold mt-0.5">₹{sub.profits.toLocaleString()}</p>
                 </div>
               </div>
 

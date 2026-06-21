@@ -9,14 +9,18 @@ import { SubsidiaryGrid } from './components/SubsidiaryGrid';
 import { SubsidiaryDetail } from './components/SubsidiaryDetail';
 import { AgentBoard } from './components/AgentBoard';
 import { TaskTerminal } from './components/TaskTerminal';
+import { TaskBoard } from './components/TaskBoard';
 import { DirectorAgent } from './components/DirectorAgent';
+import { LeadCRM } from './components/LeadCRM';
+import { EmployeeDirectory } from './components/EmployeeDirectory';
+import { OrgTree } from './components/OrgTree';
 import type { Subsidiary } from './types';
 
 function DashboardLayout() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [selectedSubsidiary, setSelectedSubsidiary] = useState<Subsidiary | null>(null);
+  const [teamSubTab, setTeamSubTab] = useState<'directory' | 'org'>('directory');
 
-  // Helper to change tabs and reset subsidiary sub-view if needed
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     if (tab !== 'subsidiaries') {
@@ -40,8 +44,41 @@ function DashboardLayout() {
         return <SubsidiaryGrid onViewDetails={setSelectedSubsidiary} />;
       case 'agents':
         return <AgentBoard />;
+      case 'tasks':
+        return <TaskBoard />;
       case 'terminal':
         return <TaskTerminal />;
+      case 'leads':
+        return <LeadCRM />;
+      case 'team':
+        return (
+          <div className="space-y-5">
+            {/* Sub-tab toggle */}
+            <div className="flex items-center gap-1 bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1 w-fit">
+              <button
+                onClick={() => setTeamSubTab('directory')}
+                className={`text-xs font-semibold px-4 py-2 rounded-lg transition-all ${
+                  teamSubTab === 'directory'
+                    ? 'bg-amber-600/30 text-amber-400 border border-amber-600/40'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                👥 Directory
+              </button>
+              <button
+                onClick={() => setTeamSubTab('org')}
+                className={`text-xs font-semibold px-4 py-2 rounded-lg transition-all ${
+                  teamSubTab === 'org'
+                    ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-600/40'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                🌳 Org Tree
+              </button>
+            </div>
+            {teamSubTab === 'directory' ? <EmployeeDirectory /> : <OrgTree />}
+          </div>
+        );
       default:
         return <Overview />;
     }
@@ -49,24 +86,17 @@ function DashboardLayout() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-100 font-sans select-none transition-colors duration-300">
-      {/* Sidebar Navigation — desktop full sidebar, mobile as a drawer overlay */}
       <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} />
 
-      {/* Main Panel Content Area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-gradient-to-tr from-zinc-950 via-zinc-900/90 to-purple-950/10 transition-colors duration-300 min-w-0">
-        {/* Top Scrollable wrapper */}
         <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 pt-16 md:pt-6">
-          {/* Global Header Metrics */}
-          <Header />
-
-          {/* Current Tab Screen View */}
+          <Header showMetrics={activeTab === 'overview'} />
           <div className="pb-24 md:pb-16 animate-in fade-in duration-300">
             {renderTabContent()}
           </div>
         </div>
       </main>
 
-      {/* Floating AI Director Voice & Text Assistant */}
       <DirectorAgent />
     </div>
   );

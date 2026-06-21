@@ -5,7 +5,7 @@ import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { ProgressBar } from './ui/ProgressBar';
 import { CreateAgentModal, CreateTaskModal } from './CreateModals';
-import { Users, UserPlus, Play, Target } from 'lucide-react';
+import { Users, UserPlus, Play, Target, Cpu, BookOpen } from 'lucide-react';
 
 export const AgentBoard: React.FC = () => {
   const { agents, subsidiaries, tasks } = useApp();
@@ -104,7 +104,7 @@ export const AgentBoard: React.FC = () => {
                 className="flex flex-col bg-zinc-950/40 border-zinc-800/60"
               >
                 {/* Agent Card Header */}
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="text-2xl w-11 h-11 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
                       {agent.avatar}
@@ -125,6 +125,61 @@ export const AgentBoard: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Model + Skills strip */}
+                <div className="mb-3 space-y-2">
+                  {/* Model badge */}
+                  {agent.modelId && (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <div className="flex items-center gap-1">
+                        <Cpu size={10} className="text-indigo-400 shrink-0" />
+                        <span className="text-[10px] font-mono text-indigo-400 truncate">{agent.modelId}</span>
+                      </div>
+                      {agent.roleDefinition && (
+                        <div className="flex items-center gap-2 text-[9px] font-mono text-zinc-500">
+                          <span>Temp: <strong className="text-purple-400">{agent.roleDefinition.temperature}</strong></span>
+                          <span>&bull;</span>
+                          <span>MaxT: <strong className="text-purple-400">{agent.roleDefinition.maxTokens}</strong></span>
+                          <span>&bull;</span>
+                          <span className="capitalize">Mem: <strong className="text-purple-400">{agent.roleDefinition.memoryType?.replace('_', ' ')}</strong></span>
+                          {agent.roleDefinition.tools && agent.roleDefinition.tools.length > 0 && (
+                            <>
+                              <span>&bull;</span>
+                              <span>Tools: <strong className="text-emerald-400">{agent.roleDefinition.tools.filter(t => t.enabled).length}/{agent.roleDefinition.tools.length}</strong></span>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Skills chips */}
+                  {agent.roleDefinition?.commonSkills && (
+                    <div className="flex flex-wrap gap-1">
+                      {agent.roleDefinition.commonSkills.slice(0, 3).map((skill) => (
+                        <span
+                          key={skill}
+                          className="px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-zinc-900 border border-zinc-800 text-zinc-500"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                      {agent.roleDefinition.commonSkills.length > 3 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-zinc-900 border border-zinc-800 text-zinc-600">
+                          +{agent.roleDefinition.commonSkills.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {/* Instructions excerpt */}
+                  {agent.instructions && (
+                    <div className="flex items-start gap-1.5 p-2 rounded-lg bg-zinc-950/50 border border-zinc-900">
+                      <BookOpen size={9} className="text-zinc-600 shrink-0 mt-0.5" />
+                      <p className="text-[9px] text-zinc-600 font-mono leading-snug line-clamp-2">
+                        {agent.instructions}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 {/* Body Content depending on state */}
                 <div className="flex-1 mt-2">
                   {activeTask ? (
@@ -134,7 +189,7 @@ export const AgentBoard: React.FC = () => {
                           <span className="text-[9px] font-mono text-purple-400 uppercase tracking-wider font-semibold block">ACTIVE OPERATION</span>
                           <h5 className="text-xs font-bold text-zinc-200 mt-0.5 truncate">{activeTask.title}</h5>
                         </div>
-                        <span className="text-[10px] font-mono text-emerald-400 font-semibold shrink-0">+${activeTask.payout.toLocaleString()}</span>
+                        <span className="text-[10px] font-mono text-emerald-400 font-semibold shrink-0">+₹{activeTask.payout.toLocaleString()}</span>
                       </div>
 
                       <p className="text-[10px] text-zinc-500 leading-snug">{activeTask.description}</p>

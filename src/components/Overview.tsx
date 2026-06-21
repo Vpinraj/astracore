@@ -1,21 +1,77 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
 import { ProgressBar } from './ui/ProgressBar';
-import { Terminal, Sparkles, HelpCircle } from 'lucide-react';
+import { Terminal, Sparkles, HelpCircle, Plus, FileSpreadsheet } from 'lucide-react';
+import { CreateTransactionModal } from './CreateTransactionModal';
+import { BalanceSheet } from './BalanceSheet';
 
 export const Overview: React.FC = () => {
-  const { subsidiaries, tasks, agents } = useApp();
+  const { subsidiaries, tasks, agents, leads } = useApp();
+  const [isTxModalOpen, setIsTxModalOpen] = useState(false);
 
   const activeTasks = tasks.filter((t) => t.status === 'in_progress');
 
+  // Filter out the 'common' pseudo-subsidiary for business-specific lists
+  const businessSubs = subsidiaries.filter(s => s.id !== 'common');
+
   // Find top contributing subsidiary
-  const topSub = [...subsidiaries].sort((a, b) => b.profits - a.profits)[0];
-  const totalProfits = subsidiaries.reduce((sum, s) => sum + s.profits, 0) || 1;
+  const topSub = [...businessSubs].sort((a, b) => b.profits - a.profits)[0];
+  const totalProfits = businessSubs.reduce((sum, s) => sum + s.profits, 0) || 1;
+
+  const totalProcurements = subsidiaries.reduce((sum, s) => sum + (s.procurements || 0), 0);
+  const totalSales = subsidiaries.reduce((sum, s) => sum + (s.sales || 0), 0);
+  const totalLeads = leads.length;
 
   return (
     <div className="space-y-6">
+      {/* Overview Page Action Header */}
+      <div className="flex flex-wrap justify-between items-center gap-3 bg-zinc-950/20 p-4 rounded-xl border border-zinc-900">
+        <div>
+          <h2 className="text-base font-bold text-zinc-100 flex items-center gap-2">
+            <FileSpreadsheet size={16} className="text-purple-400" /> Parent Enterprise Control Portal
+          </h2>
+          <p className="text-[10px] text-zinc-500 font-mono mt-0.5">MANAGE TRANSACTION LEDGERS, TAX AUDITS, AND METRIC OVERRIDES</p>
+        </div>
+        <button
+          onClick={() => setIsTxModalOpen(true)}
+          className="px-3.5 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 font-semibold text-xs text-white transition-colors flex items-center gap-1.5 shadow-lg shadow-purple-950/20 shrink-0"
+        >
+          <Plus size={13} /> Record Transaction
+        </button>
+      </div>
+      {/* Operational Metrics Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 animate-in fade-in duration-500">
+        <Card className="bg-zinc-950/30 border-zinc-800/80 p-4 flex justify-between items-center">
+          <div>
+            <span className="text-[10px] md:text-xs text-zinc-400 font-mono uppercase tracking-wider block">Total Procurements</span>
+            <div className="text-lg md:text-2xl font-bold font-mono text-indigo-400 mt-1">{totalProcurements.toLocaleString()}</div>
+          </div>
+          <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-indigo-400 shrink-0 ml-2">
+            🛒
+          </div>
+        </Card>
+        <Card className="bg-zinc-950/30 border-zinc-800/80 p-4 flex justify-between items-center">
+          <div>
+            <span className="text-[10px] md:text-xs text-zinc-400 font-mono uppercase tracking-wider block">Total Sales</span>
+            <div className="text-lg md:text-2xl font-bold font-mono text-emerald-400 mt-1">{totalSales.toLocaleString()}</div>
+          </div>
+          <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-emerald-400 shrink-0 ml-2">
+            📈
+          </div>
+        </Card>
+        <Card className="bg-zinc-950/30 border-zinc-800/80 p-4 flex justify-between items-center">
+          <div>
+            <span className="text-[10px] md:text-xs text-zinc-400 font-mono uppercase tracking-wider block">Total Leads</span>
+            <div className="text-lg md:text-2xl font-bold font-mono text-amber-400 mt-1">{totalLeads.toLocaleString()}</div>
+          </div>
+          <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-amber-400 shrink-0 ml-2">
+            🎯
+          </div>
+        </Card>
+      </div>
+
       {/* Visual Analytics Row — stack on mobile, 3-col on large */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-6">
         {/* Left widget: Contribution details */}
@@ -35,14 +91,14 @@ export const Overview: React.FC = () => {
 
             {/* Performance bars */}
             <div className="space-y-4 my-2">
-              {subsidiaries.map((sub) => {
+              {businessSubs.map((sub) => {
                 const percentage = Math.round((sub.profits / totalProfits) * 100);
                 return (
                   <div key={sub.id} className="space-y-1.5">
                     <div className="flex justify-between text-xs">
                       <span className="font-semibold text-zinc-300 truncate mr-2">{sub.name}</span>
                       <span className={`font-mono font-bold shrink-0 ${sub.textColor}`}>
-                        ${sub.profits.toLocaleString()} ({percentage}%)
+                        ₹{sub.profits.toLocaleString()} ({percentage}%)
                       </span>
                     </div>
                     <ProgressBar
@@ -57,7 +113,7 @@ export const Overview: React.FC = () => {
           </div>
 
           <div className="mt-4 pt-4 border-t border-zinc-900/60 flex flex-wrap items-center justify-between text-[10px] font-mono text-zinc-500 gap-2">
-            <span>TOTAL PROFIT YIELD: ${totalProfits.toLocaleString()}</span>
+            <span>TOTAL PROFIT YIELD: ₹{totalProfits.toLocaleString()}</span>
             <span className="hidden sm:inline">DATA TICK HANDSHAKE: SUCCESSFUL</span>
           </div>
         </Card>
@@ -131,7 +187,7 @@ export const Overview: React.FC = () => {
 
                     <div className="flex items-center justify-between text-[9px] text-zinc-500 font-mono mt-3.5 pt-2 border-t border-zinc-900/60">
                       <span>Agent: {agent?.name}</span>
-                      <span className="text-emerald-400 font-semibold">+${task.payout.toLocaleString()}</span>
+                      <span className="text-emerald-400 font-semibold">+₹{task.payout.toLocaleString()}</span>
                     </div>
                   </Card>
                 );
@@ -159,7 +215,7 @@ export const Overview: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-900/60">
-                {subsidiaries.map((sub) => {
+                {businessSubs.map((sub) => {
                   const netVal = sub.balance + sub.profits - sub.expenses;
                   return (
                     <tr key={sub.id} className="hover:bg-zinc-900/20 text-zinc-300 font-mono transition-colors">
@@ -167,11 +223,11 @@ export const Overview: React.FC = () => {
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sub.textColor.replace('text-', 'bg-')}`} />
                         {sub.name}
                       </td>
-                      <td className="p-3 font-semibold text-zinc-200">${sub.balance.toLocaleString()}</td>
-                      <td className="p-3 text-zinc-400">${sub.investment.toLocaleString()}</td>
-                      <td className="p-3 text-rose-400/90">${sub.expenses.toLocaleString()}</td>
-                      <td className="p-3 text-emerald-400/90">${sub.profits.toLocaleString()}</td>
-                      <td className="p-3 pr-4 text-right font-bold text-zinc-100">${netVal.toLocaleString()}</td>
+                      <td className="p-3 font-semibold text-zinc-200">₹{sub.balance.toLocaleString()}</td>
+                      <td className="p-3 text-zinc-400">₹{sub.investment.toLocaleString()}</td>
+                      <td className="p-3 text-rose-400/90">₹{sub.expenses.toLocaleString()}</td>
+                      <td className="p-3 text-emerald-400/90">₹{sub.profits.toLocaleString()}</td>
+                      <td className="p-3 pr-4 text-right font-bold text-zinc-100">₹{netVal.toLocaleString()}</td>
                     </tr>
                   );
                 })}
@@ -180,6 +236,20 @@ export const Overview: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Consolidated Balance Sheet */}
+      <div className="space-y-3 animate-in fade-in duration-500 delay-100">
+        <h4 className="text-xs font-bold text-zinc-400 font-mono uppercase tracking-widest flex items-center gap-2">
+          Consolidated Ledger & Balance Sheet Audit
+        </h4>
+        <BalanceSheet />
+      </div>
+
+      {/* Transaction Entry Modal */}
+      <CreateTransactionModal
+        isOpen={isTxModalOpen}
+        onClose={() => setIsTxModalOpen(false)}
+      />
     </div>
   );
 };
