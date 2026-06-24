@@ -226,7 +226,7 @@ export interface Agent {
   conversationHistory: ConversationMessage[]; // Running memory of past turns
 }
 
-export type TaskStatus = 'pending' | 'in_progress' | 'completed';
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'blocked_on_user' | string;
 
 export interface Task {
   id: string;
@@ -236,10 +236,11 @@ export interface Task {
   subsidiaryId: string;
   status: TaskStatus;
   progress: number;   // 0 to 100
-  payout: number;     // profit generated on complete
-  cost: number;       // expense incurred during creation/run
   duration: number;   // total steps to complete
   logs: string[];     // agent thoughts or progression updates
+  output?: string;    // task result or final action evaluation
+  pendingQuestion?: string;
+  pendingAnswer?: string;
 }
 
 export type LogType = 'info' | 'success' | 'warning' | 'agent_action' | 'system';

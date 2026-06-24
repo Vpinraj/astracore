@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace CoreApi.Core.Entities;
 
@@ -59,6 +60,7 @@ public class ConversationMessage
     public string Timestamp { get; set; } = string.Empty;
 }
 
+[BsonIgnoreExtraElements]
 public class Agent : IEntity
 {
     public string Id { get; set; } = string.Empty;
@@ -66,7 +68,7 @@ public class Agent : IEntity
     public string Role { get; set; } = string.Empty;
     public AgentRoleDefinition? RoleDefinition { get; set; }
     public string Instructions { get; set; } = string.Empty;
-    public string ModelId { get; set; } = "gemini-2.0-flash";
+    public string ModelId { get; set; } = "gemma4:latest";
     public string SubsidiaryId { get; set; } = string.Empty;
     public string Status { get; set; } = "idle"; // idle | thinking | working | resting
     public string? ActiveTaskId { get; set; }
@@ -76,6 +78,7 @@ public class Agent : IEntity
     public List<ConversationMessage> ConversationHistory { get; set; } = new();
 }
 
+[BsonIgnoreExtraElements]
 public class TaskItem : IEntity
 {
     public string Id { get; set; } = string.Empty;
@@ -85,10 +88,11 @@ public class TaskItem : IEntity
     public string SubsidiaryId { get; set; } = string.Empty;
     public string Status { get; set; } = "pending"; // pending | in_progress | completed
     public int Progress { get; set; }               // 0 to 100
-    public double Payout { get; set; }
-    public double Cost { get; set; }
     public int Duration { get; set; }
     public List<string> Logs { get; set; } = new();
+    public string Output { get; set; } = string.Empty;
+    public string PendingQuestion { get; set; } = string.Empty;
+    public string PendingAnswer { get; set; } = string.Empty;
 }
 
 public class ActivityLog : IEntity

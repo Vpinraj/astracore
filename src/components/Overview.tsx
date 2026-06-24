@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useAppSelector } from '../store/hooks';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
 import { ProgressBar } from './ui/ProgressBar';
@@ -8,7 +8,10 @@ import { CreateTransactionModal } from './CreateTransactionModal';
 import { BalanceSheet } from './BalanceSheet';
 
 export const Overview: React.FC = () => {
-  const { subsidiaries, tasks, agents, leads } = useApp();
+  const subsidiaries = useAppSelector(state => state.subsidiaries.items);
+  const tasks = useAppSelector(state => state.tasks.items);
+  const agents = useAppSelector(state => state.agents.items);
+  const leads = useAppSelector(state => state.crm.leads);
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
 
   const activeTasks = tasks.filter((t) => t.status === 'in_progress');
@@ -187,7 +190,6 @@ export const Overview: React.FC = () => {
 
                     <div className="flex items-center justify-between text-[9px] text-zinc-500 font-mono mt-3.5 pt-2 border-t border-zinc-900/60">
                       <span>Agent: {agent?.name}</span>
-                      <span className="text-emerald-400 font-semibold">+₹{task.payout.toLocaleString()}</span>
                     </div>
                   </Card>
                 );

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useApp } from '../context/AppContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { createTransactionRequest } from '../store/slices/financeSlice';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Upload, HelpCircle, FileText, Check, AlertCircle } from 'lucide-react';
@@ -15,7 +16,9 @@ export const CreateTransactionModal: React.FC<CreateTransactionModalProps> = ({
   onClose,
   defaultSubsidiaryId
 }) => {
-  const { subsidiaries, agents, createTransaction } = useApp();
+  const dispatch = useAppDispatch();
+  const subsidiaries = useAppSelector(state => state.subsidiaries.items);
+  const agents = useAppSelector(state => state.agents.items);
 
   // Basic Details
   const [subsidiaryId, setSubsidiaryId] = useState(defaultSubsidiaryId || 'common');
@@ -161,7 +164,7 @@ export const CreateTransactionModal: React.FC<CreateTransactionModalProps> = ({
     }
 
     try {
-      await createTransaction(
+      dispatch(createTransactionRequest({
         subsidiaryId,
         type,
         subtotal,
@@ -173,10 +176,10 @@ export const CreateTransactionModal: React.FC<CreateTransactionModalProps> = ({
         description,
         referenceNumber,
         partnerName,
-        uploadedFileName ? `uploads/${uploadedFileName}` : '',
+        documentUrl: uploadedFileName ? `uploads/${uploadedFileName}` : '',
         processedByAgentId,
         status
-      );
+      }));
 
       onClose();
     } catch (err: any) {

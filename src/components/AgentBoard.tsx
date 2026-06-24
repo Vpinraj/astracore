@@ -1,247 +1,179 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
-import { Card } from './ui/Card';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
-import { ProgressBar } from './ui/ProgressBar';
-import { CreateAgentModal, CreateTaskModal } from './CreateModals';
-import { Users, UserPlus, Play, Target, Cpu, BookOpen } from 'lucide-react';
+import { CreateAgentModal } from './CreateModals';
+import { Users, UserPlus, MessageSquare, Search, Building2 } from 'lucide-react';
+
+import { openAgentChat } from '../store/slices/agentSlice';
 
 export const AgentBoard: React.FC = () => {
-  const { agents, subsidiaries, tasks } = useApp();
+  const dispatch = useAppDispatch();
+  const agents = useAppSelector(state => state.agents.items);
+  const subsidiaries = useAppSelector(state => state.subsidiaries.items);
+  
   const [filterSub, setFilterSub] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
-  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [selectedAgentId, setSelectedAgentId] = useState<string>('');
-  const [selectedSubId, setSelectedSubId] = useState<string>('');
 
   const filteredAgents = agents.filter((agent) => {
     const matchSub = filterSub === 'all' || agent.subsidiaryId === filterSub;
     const matchStatus = filterStatus === 'all' ||
                         (filterStatus === 'idle' && agent.status === 'idle') ||
                         (filterStatus === 'working' && agent.status === 'working');
-    return matchSub && matchStatus;
+    const matchSearch = agent.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                        agent.role.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchSub && matchStatus && matchSearch;
   });
 
   const getSubsidiaryName = (subId: string) => {
     return subsidiaries.find((s) => s.id === subId)?.name || 'Unknown Subsidiary';
   };
 
-  const handleAssignTaskClick = (agentId: string, subId: string) => {
-    setSelectedAgentId(agentId);
-    setSelectedSubId(subId);
-    setIsTaskModalOpen(true);
-  };
-
   return (
     <div className="space-y-5 md:space-y-6">
       {/* Filters & Actions Header */}
       <div className="flex flex-col gap-4 bg-zinc-950/20 p-4 border border-zinc-900 rounded-xl">
-        {/* Filters row */}
-        <div className="flex flex-wrap items-start gap-3">
-          <div className="space-y-1 flex-1 min-w-[140px]">
-            <span className="text-[10px] text-zinc-500 font-mono block">FILTER SUBSIDIARY</span>
-            <select
-              value={filterSub}
-              onChange={(e) => setFilterSub(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-purple-500/50 cursor-pointer"
-            >
-              <option value="all">All Subsidiaries</option>
-              {subsidiaries.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-wrap items-start gap-3 flex-1">
+            <div className="space-y-1 flex-1 min-w-[140px] max-w-xs">
+              <span className="text-[10px] text-zinc-500 font-mono block">SEARCH AGENTS</span>
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input 
+                  type="text"
+                  placeholder="Search by name or role..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-purple-500/50"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1 flex-1 min-w-[140px] max-w-[200px]">
+              <span className="text-[10px] text-zinc-500 font-mono block">FILTER SUBSIDIARY</span>
+              <select
+                value={filterSub}
+                onChange={(e) => setFilterSub(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-purple-500/50 cursor-pointer"
+              >
+                <option value="all">All Subsidiaries</option>
+                {subsidiaries.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1 flex-1 min-w-[120px] max-w-[160px]">
+              <span className="text-[10px] text-zinc-500 font-mono block">FILTER STATUS</span>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-purple-500/50 cursor-pointer"
+              >
+                <option value="all">All Statuses</option>
+                <option value="idle">Idle Agents</option>
+                <option value="working">Working Agents</option>
+              </select>
+            </div>
           </div>
 
-          <div className="space-y-1 flex-1 min-w-[120px]">
-            <span className="text-[10px] text-zinc-500 font-mono block">FILTER STATUS</span>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-purple-500/50 cursor-pointer"
+          <div className="flex shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAgentModalOpen(true)}
+              className="flex items-center gap-1.5 border-zinc-700/60 font-medium"
             >
-              <option value="all">All Statuses</option>
-              <option value="idle">Idle Agents</option>
-              <option value="working">Working Agents</option>
-            </select>
+              <UserPlus size={15} /> Hire AI Agent
+            </Button>
           </div>
-        </div>
-
-        {/* Action button */}
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsAgentModalOpen(true)}
-            className="flex items-center gap-1.5 border-zinc-700/60 font-medium"
-          >
-            <UserPlus size={15} /> Hire AI Agent
-          </Button>
         </div>
       </div>
 
-      {/* Agents Layout grid — 1 col mobile, 2 col md */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-        {filteredAgents.length === 0 ? (
-          <div className="col-span-full p-10 md:p-12 text-center text-zinc-500 border border-dashed border-zinc-800 rounded-xl bg-zinc-950/15">
-            <Users className="mx-auto text-zinc-700 w-10 h-10 mb-3" />
-            <p className="text-sm font-semibold">No agents found</p>
-            <p className="text-xs text-zinc-600 mt-1">Try modifying your filter options or deploy a new agent blueprint.</p>
-          </div>
-        ) : (
-          filteredAgents.map((agent) => {
-            // Find active task
-            const activeTask = agent.activeTaskId
-              ? tasks.find((t) => t.id === agent.activeTaskId)
-              : null;
-
-            return (
-              <Card
-                key={agent.id}
-                glow={agent.status === 'working'}
-                glowColor="indigo"
-                className="flex flex-col bg-zinc-950/40 border-zinc-800/60"
-              >
-                {/* Agent Card Header */}
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="text-2xl w-11 h-11 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
-                      {agent.avatar}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-zinc-100 truncate">{agent.name}</h4>
-                        <Badge variant="role" className="shrink-0">LVL {agent.level}</Badge>
+      {/* Agents Table */}
+      <div className="overflow-x-auto rounded-xl border border-zinc-900 bg-zinc-950/30">
+        <table className="w-full min-w-[800px] text-left border-collapse text-xs">
+          <thead>
+            <tr className="bg-zinc-950/60 border-b border-zinc-900 text-zinc-500 font-mono text-[10px] uppercase tracking-wider">
+              <th className="p-4 pl-5">Agent</th>
+              <th className="p-4">Role</th>
+              <th className="p-4">Subsidiary Node</th>
+              <th className="p-4">Level & Efficiency</th>
+              <th className="p-4">Status</th>
+              <th className="p-4 pr-5 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-900/60">
+            {filteredAgents.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-8 md:p-12 text-center text-zinc-500 bg-zinc-950/15">
+                  <Users className="mx-auto text-zinc-700 w-10 h-10 mb-3" />
+                  <p className="text-sm font-semibold">No agents found</p>
+                  <p className="text-xs text-zinc-600 mt-1">Try modifying your filter options or deploy a new agent blueprint.</p>
+                </td>
+              </tr>
+            ) : (
+              filteredAgents.map((agent) => (
+                <tr key={agent.id} className="hover:bg-zinc-900/20 text-zinc-300 transition-colors group">
+                  <td className="p-4 pl-5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="text-xl w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
+                        {agent.avatar}
                       </div>
-                      <span className="text-[10px] text-zinc-500 font-mono tracking-wide mt-0.5 block truncate">
-                        {agent.role} &bull; <span className="text-purple-400">{getSubsidiaryName(agent.subsidiaryId)}</span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-zinc-100 truncate">{agent.name}</p>
+                        <p className="text-[10px] text-zinc-500 font-mono mt-0.5 truncate">{agent.id}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <Badge variant="role" className="px-1.5 py-0.5">{agent.role}</Badge>
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 size={13} className="text-zinc-600" />
+                      <span className="font-medium text-zinc-300 truncate">
+                        {getSubsidiaryName(agent.subsidiaryId)}
                       </span>
                     </div>
-                  </div>
-                  <div className="text-right shrink-0 ml-2">
-                    <Badge variant={agent.status}>{agent.status}</Badge>
-                    <span className="text-[9px] font-mono text-zinc-500 block mt-1">Efficiency: {agent.efficiency}x</span>
-                  </div>
-                </div>
-
-                {/* Model + Skills strip */}
-                <div className="mb-3 space-y-2">
-                  {/* Model badge */}
-                  {agent.modelId && (
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <div className="flex items-center gap-1">
-                        <Cpu size={10} className="text-indigo-400 shrink-0" />
-                        <span className="text-[10px] font-mono text-indigo-400 truncate">{agent.modelId}</span>
+                  </td>
+                  <td className="p-4">
+                    <div className="space-y-1">
+                      <div className="text-[10px] font-mono text-zinc-400">LVL {agent.level}</div>
+                      <div className="w-24 h-1.5 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800/50">
+                        <div 
+                          className="h-full bg-gradient-to-r from-purple-600 to-indigo-500" 
+                          style={{ width: `${Math.min(100, agent.efficiency * 100)}%` }} 
+                        />
                       </div>
-                      {agent.roleDefinition && (
-                        <div className="flex items-center gap-2 text-[9px] font-mono text-zinc-500">
-                          <span>Temp: <strong className="text-purple-400">{agent.roleDefinition.temperature}</strong></span>
-                          <span>&bull;</span>
-                          <span>MaxT: <strong className="text-purple-400">{agent.roleDefinition.maxTokens}</strong></span>
-                          <span>&bull;</span>
-                          <span className="capitalize">Mem: <strong className="text-purple-400">{agent.roleDefinition.memoryType?.replace('_', ' ')}</strong></span>
-                          {agent.roleDefinition.tools && agent.roleDefinition.tools.length > 0 && (
-                            <>
-                              <span>&bull;</span>
-                              <span>Tools: <strong className="text-emerald-400">{agent.roleDefinition.tools.filter(t => t.enabled).length}/{agent.roleDefinition.tools.length}</strong></span>
-                            </>
-                          )}
-                        </div>
-                      )}
                     </div>
-                  )}
-                  {/* Skills chips */}
-                  {agent.roleDefinition?.commonSkills && (
-                    <div className="flex flex-wrap gap-1">
-                      {agent.roleDefinition.commonSkills.slice(0, 3).map((skill) => (
-                        <span
-                          key={skill}
-                          className="px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-zinc-900 border border-zinc-800 text-zinc-500"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                      {agent.roleDefinition.commonSkills.length > 3 && (
-                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-zinc-900 border border-zinc-800 text-zinc-600">
-                          +{agent.roleDefinition.commonSkills.length - 3} more
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {/* Instructions excerpt */}
-                  {agent.instructions && (
-                    <div className="flex items-start gap-1.5 p-2 rounded-lg bg-zinc-950/50 border border-zinc-900">
-                      <BookOpen size={9} className="text-zinc-600 shrink-0 mt-0.5" />
-                      <p className="text-[9px] text-zinc-600 font-mono leading-snug line-clamp-2">
-                        {agent.instructions}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Body Content depending on state */}
-                <div className="flex-1 mt-2">
-                  {activeTask ? (
-                    <div className="space-y-3.5 bg-zinc-900/10 p-3 rounded-lg border border-zinc-900/60">
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="min-w-0">
-                          <span className="text-[9px] font-mono text-purple-400 uppercase tracking-wider font-semibold block">ACTIVE OPERATION</span>
-                          <h5 className="text-xs font-bold text-zinc-200 mt-0.5 truncate">{activeTask.title}</h5>
-                        </div>
-                        <span className="text-[10px] font-mono text-emerald-400 font-semibold shrink-0">+₹{activeTask.payout.toLocaleString()}</span>
-                      </div>
-
-                      <p className="text-[10px] text-zinc-500 leading-snug">{activeTask.description}</p>
-
-                      <ProgressBar value={activeTask.progress} color="indigo" showText />
-
-                      {/* Log Console for thoughts */}
-                      {activeTask.logs.length > 0 && (
-                        <div className="mt-3 bg-zinc-950 p-2.5 rounded-lg border border-zinc-900 font-mono text-[9px] text-indigo-400 h-20 overflow-y-auto space-y-1 leading-normal select-text">
-                          <div className="text-zinc-600 border-b border-zinc-900 pb-1.5 mb-1.5 flex justify-between">
-                            <span>COGNITIVE LOG</span>
-                            <span>THREAD_ID: {activeTask.id.substring(5, 9)}</span>
-                          </div>
-                          {activeTask.logs.slice(-3).map((log, idx) => (
-                            <div key={idx} className="break-words">
-                              &gt; {log}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="h-full flex flex-col justify-center items-center py-6 bg-zinc-950/20 border border-zinc-900 rounded-lg border-dashed">
-                      <Target className="text-zinc-700 w-8 h-8 mb-2" />
-                      <p className="text-xs text-zinc-400 text-center px-4">Agent subroutine is idle. Awaiting command allocation...</p>
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        onClick={() => handleAssignTaskClick(agent.id, agent.subsidiaryId)}
-                        className="mt-3.5 flex items-center gap-1.5 text-[10px] py-1 border border-zinc-700/50 hover:border-purple-500/25"
-                      >
-                        <Play size={10} className="text-indigo-400" /> Allocate Task
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            );
-          })
-        )}
+                  </td>
+                  <td className="p-4">
+                    <Badge variant={agent.status as any}>{agent.status}</Badge>
+                  </td>
+                  <td className="p-4 pr-5 text-right">
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => dispatch(openAgentChat({ agentId: agent.id }))}
+                      className="p-1.5 text-zinc-400 hover:text-purple-400 hover:bg-purple-500/10"
+                      title="Message Agent"
+                    >
+                      <MessageSquare size={14} className="mr-1.5 inline" /> Chat
+                    </Button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Shared Modals */}
       <CreateAgentModal
         isOpen={isAgentModalOpen}
         onClose={() => setIsAgentModalOpen(false)}
-      />
-      <CreateTaskModal
-        isOpen={isTaskModalOpen}
-        onClose={() => setIsTaskModalOpen(false)}
-        defaultAgentId={selectedAgentId}
-        defaultSubsidiaryId={selectedSubId}
       />
     </div>
   );

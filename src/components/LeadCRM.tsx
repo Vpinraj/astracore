@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useApp } from '../context/AppContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { createLeadRequest, updateLeadStageRequest, deleteLeadRequest } from '../store/slices/crmSlice';
 import { Target, Plus, Search, ChevronRight, Phone, Mail, User2, Building2, XCircle } from 'lucide-react';
 import type { Lead, LeadStage } from '../types';
 
@@ -257,7 +258,10 @@ interface CreateLeadModalProps {
 }
 
 const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose }) => {
-  const { subsidiaries, agents, employees, createLead } = useApp();
+  const dispatch = useAppDispatch();
+  const subsidiaries = useAppSelector(state => state.subsidiaries.items);
+  const agents = useAppSelector(state => state.agents.items);
+  const employees = useAppSelector(state => state.crm.employees);
   const [contactName, setContactName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
@@ -290,7 +294,7 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose }) =>
     setIsSubmitting(true);
     setError('');
     try {
-      await createLead(subsidiaryId, contactName, companyName, email, phone, source, stage, estimatedValue, assignedToId, assignedToName, notes);
+      dispatch(createLeadRequest({ subsidiaryId, contactName, companyName, email, phone, source, stage, estimatedValue, assignedToId, assignedToName, notes }));
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to create lead.');
@@ -402,7 +406,9 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose }) =>
 };
 
 export const LeadCRM: React.FC = () => {
-  const { leads, subsidiaries, updateLeadStage, deleteLead } = useApp();
+  const dispatch = useAppDispatch();
+  const leads = useAppSelector(state => state.crm.leads);
+  const subsidiaries = useAppSelector(state => state.subsidiaries.items);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [filterSubsidiary, setFilterSubsidiary] = useState('all');
@@ -543,11 +549,11 @@ export const LeadCRM: React.FC = () => {
           lead={selectedLead}
           onClose={() => setSelectedLead(null)}
           onStageUpdate={async (id, stage, note, by) => {
-            await updateLeadStage(id, stage, note, by);
+            dispatch(updateLeadStageRequest({ leadId: id, stage, note, by }));
             setSelectedLead(null);
           }}
           onDelete={async (id) => {
-            await deleteLead(id);
+            dispatch(deleteLeadRequest(id));
             setSelectedLead(null);
           }}
         />

@@ -16,22 +16,25 @@ public class TaskService : ITaskService
     private readonly IRepository<Subsidiary> _subsidiaryRepository;
     private readonly ILogService _logService;
     private readonly ITransactionService _transactionService;
+    private readonly IServiceProvider _serviceProvider;
 
     public TaskService(
         IRepository<TaskItem> taskRepository,
         IRepository<Agent> agentRepository,
         IRepository<Subsidiary> subsidiaryRepository,
         ILogService logService,
-        ITransactionService transactionService)
+        ITransactionService transactionService,
+        IServiceProvider serviceProvider)
     {
         _taskRepository = taskRepository;
         _agentRepository = agentRepository;
         _subsidiaryRepository = subsidiaryRepository;
         _logService = logService;
         _transactionService = transactionService;
+        _serviceProvider = serviceProvider;
     }
 
-    public async Task<TaskItem> CreateTaskAsync(string title, string description, string subsidiaryId, string assignedAgentId, double payout, double cost)
+    public async Task<TaskItem> CreateTaskAsync(string title, string description, string subsidiaryId, string assignedAgentId)
     {
         var random = new Random();
         var duration = 10 + random.Next(15);
@@ -45,8 +48,6 @@ public class TaskService : ITaskService
             SubsidiaryId = subsidiaryId,
             Status = "pending",
             Progress = 0,
-            Payout = payout,
-            Cost = cost,
             Duration = duration,
             Logs = new() { "Task pipeline initialized. Awaiting deployment..." }
         };
@@ -108,34 +109,7 @@ public class TaskService : ITaskService
             throw new AgentBusyException($"Agent {agent.Name} is currently busy working on another node stream.");
         }
 
-        if (subsidiary.Balance < task.Cost)
-        {
-            throw new InsufficientFundsException($"Insufficient funds in {subsidiary.Name} (₹{subsidiary.Balance:N0}) to deploy this task (Requires ₹{task.Cost:N0}).");
-        }
-
-        // Deduct cost
-        if (task.Cost > 0)
-        {
-            double subtotal = Math.Round(task.Cost / 1.18, 2);
-            double tax = Math.Round(subtotal * 0.09, 2);
-            double diff = task.Cost - (subtotal + tax + tax);
-            subtotal += diff;
-
-            await _transactionService.RecordTransactionAsync(
-                subsidiaryId: task.SubsidiaryId,
-                type: "Expense",
-                subtotal: subtotal,
-                discount: 0,
-                cgst: tax,
-                sgst: tax,
-                totalAmount: task.Cost,
-                amountPaidOrReceived: task.Cost,
-                description: $"Deployed Task Cost: {task.Title}",
-                referenceNumber: $"INV-TSK-{DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 100000}",
-                partnerName: "Operations HQ",
-                processedByAgentId: agent.Id
-            );
-        }
+        // Cost logic removed
 
         // Update Agent
         agent.Status = "working";
@@ -149,11 +123,15 @@ public class TaskService : ITaskService
 
         // Log transition
         await _logService.AddLogAsync(
-            $"Agent {agent.Name} ({agent.Role}) deployed to task: \"{task.Title}\". Allocated operational budget: ₹{task.Cost:N0}.",
+            $"Agent {agent.Name} ({agent.Role}) deployed to task: \"{task.Title}\".",
             "agent_action",
             subsidiaryName: subsidiary.Name,
             agentName: agent.Name
         );
+
+        // Launch background LLM execution
+        var processor = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ITaskProcessorService>(_serviceProvider);
+        _ = System.Threading.Tasks.Task.Run(() => processor.ProcessTaskAsync(task.Id));
     }
 
     public async Task AssignAgentAsync(string taskId, string agentId)
@@ -189,5 +167,26 @@ public class TaskService : ITaskService
     public Task<IEnumerable<TaskItem>> GetAllAsync() => _taskRepository.GetAllAsync();
     public Task<TaskItem?> GetByIdAsync(string id) => _taskRepository.GetByIdAsync(id);
     public Task SaveAsync(TaskItem task) => _taskRepository.SaveAsync(task);
-    public Task DeleteAsync(string id) => _taskRepository.DeleteAsync(id);
+    public async Task DeleteAsync(string id)
+    {
+        await _taskRepository.DeleteAsync(id);
+    }
+
+    public async Task ResumeTaskAsync(string taskId, string answer)
+    {
+        var task = await _taskRepository.GetByIdAsync(taskId);
+        if (task == null || task.Status != "blocked_on_user") return;
+
+        task.Description += $"\n\n[Agent Asked]: {task.PendingQuestion}\n[User Answered]: {answer}\n[System]: Please continue processing your task.";
+        task.PendingAnswer = answer;
+        task.PendingQuestion = string.Empty;
+        task.Status = "in_progress";
+        task.Logs.Add("User provided answer. Resuming execution...");
+        
+        await _taskRepository.SaveAsync(task);
+
+        // Resume background LLM execution
+        var processor = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ITaskProcessorService>(_serviceProvider);
+        _ = System.Threading.Tasks.Task.Run(() => processor.ProcessTaskAsync(task.Id));
+    }
 }

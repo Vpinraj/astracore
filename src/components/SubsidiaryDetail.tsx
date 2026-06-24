@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { allocateFundsRequest } from '../store/slices/subsidiarySlice';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { ProgressBar } from './ui/ProgressBar';
-import { ArrowLeft, Users, Terminal, Plus, DollarSign } from 'lucide-react';
+import { ArrowLeft, Users, Terminal, Plus, DollarSign, MessageSquare } from 'lucide-react';
 import { CreateAgentModal, CreateTaskModal } from './CreateModals';
 import { CreateTransactionModal } from './CreateTransactionModal';
 import { BalanceSheet } from './BalanceSheet';
+import { openAgentChat } from '../store/slices/agentSlice';
 import type { Subsidiary } from '../types';
 
 interface SubsidiaryDetailProps {
@@ -16,7 +18,10 @@ interface SubsidiaryDetailProps {
 }
 
 export const SubsidiaryDetail: React.FC<SubsidiaryDetailProps> = ({ subsidiary, onClose }) => {
-  const { agents, tasks, leads, allocateFunds } = useApp();
+  const dispatch = useAppDispatch();
+  const agents = useAppSelector(state => state.agents.items);
+  const tasks = useAppSelector(state => state.tasks.items);
+  const leads = useAppSelector(state => state.crm.leads);
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
@@ -34,7 +39,7 @@ export const SubsidiaryDetail: React.FC<SubsidiaryDetailProps> = ({ subsidiary, 
     if (amount) {
       const parsed = parseInt(amount);
       if (!isNaN(parsed) && parsed > 0) {
-        allocateFunds(subsidiary.id, parsed);
+        dispatch(allocateFundsRequest({ subsidiaryId: subsidiary.id, amount: parsed }));
       }
     }
   };
@@ -191,7 +196,18 @@ export const SubsidiaryDetail: React.FC<SubsidiaryDetailProps> = ({ subsidiary, 
                       <span className="text-[10px] text-zinc-500 font-mono tracking-wide block mt-0.5">{agent.role}</span>
                     </div>
                   </div>
-                  <Badge variant={agent.status} className="shrink-0 ml-2">{agent.status}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={agent.status} className="shrink-0">{agent.status}</Badge>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => dispatch(openAgentChat({ agentId: agent.id }))}
+                      className="p-1.5 text-zinc-400 hover:text-purple-400 hover:bg-purple-500/10"
+                      title="Message Agent"
+                    >
+                      <MessageSquare size={14} />
+                    </Button>
+                  </div>
                 </Card>
               ))
             )}
@@ -272,8 +288,6 @@ export const SubsidiaryDetail: React.FC<SubsidiaryDetailProps> = ({ subsidiary, 
                         <div className="flex flex-wrap items-center gap-2 my-2 text-[10px] text-zinc-400">
                           <span className="text-zinc-600">Assigned:</span>
                           <span className="font-semibold text-zinc-300">{agent?.name} ({agent?.role})</span>
-                          <span className="text-zinc-600">Yield:</span>
-                          <span className="text-emerald-400 font-mono">+₹{task.payout.toLocaleString()}</span>
                         </div>
 
                         <ProgressBar value={task.progress} color="indigo" showText />
@@ -302,7 +316,6 @@ export const SubsidiaryDetail: React.FC<SubsidiaryDetailProps> = ({ subsidiary, 
                     <Card key={task.id} className="p-3 bg-zinc-950/20 border-zinc-900 flex justify-between items-center text-xs gap-2">
                       <div className="min-w-0">
                         <h5 className="font-bold text-zinc-200 truncate">{task.title}</h5>
-                        <span className="text-[10px] text-zinc-500 block mt-0.5">Yield: ₹{task.payout.toLocaleString()}</span>
                       </div>
                       <Badge variant="pending" className="shrink-0">pending</Badge>
                     </Card>
@@ -331,7 +344,6 @@ export const SubsidiaryDetail: React.FC<SubsidiaryDetailProps> = ({ subsidiary, 
                           <p className="text-[9px] text-zinc-500 mt-1">Processed by {agent?.name} ({agent?.role})</p>
                         </div>
                         <div className="text-right shrink-0">
-                          <span className="text-emerald-400 font-bold font-mono">+₹{task.payout.toLocaleString()}</span>
                           <span className="text-[8px] text-zinc-600 uppercase block font-sans font-semibold mt-1">successful</span>
                         </div>
                       </div>

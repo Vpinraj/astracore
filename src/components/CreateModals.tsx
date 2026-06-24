@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { createSubsidiaryRequest } from '../store/slices/subsidiarySlice';
+import { createAgentRequest } from '../store/slices/agentSlice';
+import { createTaskRequest } from '../store/slices/taskSlice';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import type { AgentRole, AgentOutputFormat, AgentMemoryType, AgentTool } from '../types';
@@ -14,7 +17,7 @@ interface CreateSubModalProps {
 }
 
 export const CreateSubsidiaryModal: React.FC<CreateSubModalProps> = ({ isOpen, onClose }) => {
-  const { createSubsidiary } = useApp();
+  const dispatch = useAppDispatch();
   const [name, setName] = useState('');
   const [industry, setIndustry] = useState('AI Software');
   const [investment, setInvestment] = useState(0); // Defaults to 0
@@ -40,11 +43,11 @@ export const CreateSubsidiaryModal: React.FC<CreateSubModalProps> = ({ isOpen, o
       return;
     }
 
-    createSubsidiary(
+    dispatch(createSubsidiaryRequest({
       name, 
       industry, 
       investment, 
-      undefined, 
+      colorTheme: undefined, 
       logoUrl, 
       website, 
       email, 
@@ -52,7 +55,7 @@ export const CreateSubsidiaryModal: React.FC<CreateSubModalProps> = ({ isOpen, o
       description, 
       address, 
       bankDetails
-    );
+    }));
     setName('');
     setIndustry('AI Software');
     setInvestment(0);
@@ -219,24 +222,24 @@ interface CreateAgentModalProps {
 }
 
 const AI_MODELS = [
+  { id: 'gemma4:latest',       label: 'Gemma 4 (Local)',     provider: 'Ollama' },
+  { id: 'llama3:latest',       label: 'Llama 3 (Local)',     provider: 'Ollama' },
   { id: 'gemini-2.0-flash',    label: 'Gemini 2.0 Flash',    provider: 'Google' },
   { id: 'gemini-2.5-pro',      label: 'Gemini 2.5 Pro',      provider: 'Google' },
   { id: 'gpt-4o',              label: 'GPT-4o',              provider: 'OpenAI' },
   { id: 'gpt-4o-mini',         label: 'GPT-4o Mini',         provider: 'OpenAI' },
   { id: 'claude-3-5-sonnet',   label: 'Claude 3.5 Sonnet',   provider: 'Anthropic' },
   { id: 'claude-3-haiku',      label: 'Claude 3 Haiku',      provider: 'Anthropic' },
-  { id: 'llama-3.3-70b',       label: 'Llama 3.3 70B',       provider: 'Meta' },
 ];
 
 export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({ isOpen, onClose, defaultSubsidiaryId }) => {
-  const { subsidiaries, createAgent } = useApp();
+  const dispatch = useAppDispatch();
+  const subsidiaries = useAppSelector(state => state.subsidiaries.items);
   const [name, setName] = useState('');
   const [role, setRole] = useState<AgentRole>('Developer');
   const [subsidiaryId, setSubsidiaryId] = useState(defaultSubsidiaryId || subsidiaries[0]?.id || '');
   const [instructions, setInstructions] = useState('');
-  const [modelId, setModelId] = useState('gemini-2.0-flash');
-  const [deductionFee, setDeductionFee] = useState(0); // Defaults to 0
-  
+  const [modelId, setModelId] = useState('gemma4:latest');
   // Custom Override States for new Agent fields
   const [temperature, setTemperature] = useState(0.2);
   const [maxTokens, setMaxTokens] = useState(2048);
@@ -294,25 +297,25 @@ export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({ isOpen, onCl
     const sub = subsidiaries.find(s => s.id === subsidiaryId);
     if (!sub) return;
 
-    if (sub.balance < deductionFee) {
-      setError(`Insufficient subsidiary balance. Hiring fees require ₹${deductionFee.toLocaleString()}, but ${sub.name} only holds ₹${sub.balance.toLocaleString()}.`);
-      return;
-    }
-
-    // Pass custom parameters to createAgent
-    createAgent(name, role, subsidiaryId, instructions, modelId, {
-      temperature,
-      maxTokens,
-      outputFormat,
-      memoryType,
-      tools
-    }, deductionFee);
+    dispatch(createAgentRequest({
+      name, 
+      role, 
+      subsidiaryId, 
+      instructions, 
+      modelId, 
+      customOverrides: {
+        temperature,
+        maxTokens,
+        outputFormat,
+        memoryType,
+        tools
+      }
+    }));
 
     setName('');
     setRole('Developer');
     setInstructions('');
-    setModelId('gemini-2.0-flash');
-    setDeductionFee(0);
+    setModelId('gemma4:latest');
     setError('');
     onClose();
   };
@@ -326,13 +329,8 @@ export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({ isOpen, onCl
           </div>
         )}
 
-        <div className="p-3 bg-zinc-900/40 border border-zinc-800/80 rounded-lg text-xs text-zinc-400">
-          Deploying an AI agent deducts an initial server setup fee of{' '}
-          <span className="text-zinc-100 font-mono font-semibold">₹{deductionFee.toLocaleString()}</span> from the selected subsidiary's ledger.
-        </div>
-
-        {/* Row: Agent Name + Subsidiary + Deduction Fee */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Row: Agent Name + Subsidiary */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-zinc-400 font-medium">Agent Name</label>
             <input
@@ -362,18 +360,6 @@ export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({ isOpen, onCl
             </select>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-zinc-400 font-medium">Deduction Fee (₹)</label>
-            <input
-              type="number"
-              value={deductionFee}
-              onChange={(e) => setDeductionFee(Math.max(0, parseInt(e.target.value) || 0))}
-              placeholder="0"
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-purple-500/50 font-mono"
-              min="0"
-              required
-            />
-          </div>
         </div>
 
         {/* Role Blueprint Selector — pill grid */}
@@ -550,13 +536,13 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   defaultSubsidiaryId,
   defaultAgentId,
 }) => {
-  const { subsidiaries, agents, createTask } = useApp();
+  const dispatch = useAppDispatch();
+  const subsidiaries = useAppSelector(state => state.subsidiaries.items);
+  const agents = useAppSelector(state => state.agents.items);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [subsidiaryId, setSubsidiaryId] = useState(defaultSubsidiaryId || '');
   const [agentId, setAgentId] = useState(defaultAgentId || '');
-  const [cost, setCost] = useState(0); // Defaults to 0
-  const [payout, setPayout] = useState(8000);
   const [error, setError] = useState('');
 
   // Sync state variables
@@ -570,22 +556,27 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     }
   }, [isOpen, defaultSubsidiaryId, subsidiaries]);
 
-  // filter idle agents belonging to the selected subsidiary
-  const idleAgents = agents.filter(
-    (a) => a.subsidiaryId === subsidiaryId && a.status === 'idle'
+  // filter agents belonging to the selected subsidiary
+  const availableAgents = agents.filter(
+    (a) => a.subsidiaryId === subsidiaryId
   );
 
   React.useEffect(() => {
-    if (isOpen) {
-      if (defaultAgentId) {
+    if (!isOpen) return;
+    
+    // Check if the currently selected agent belongs to the chosen subsidiary
+    const isValidAgent = availableAgents.some(a => a.id === agentId);
+    
+    if (!isValidAgent) {
+      if (defaultAgentId && availableAgents.some(a => a.id === defaultAgentId)) {
         setAgentId(defaultAgentId);
-      } else if (idleAgents.length > 0) {
-        setAgentId(idleAgents[0].id);
+      } else if (availableAgents.length > 0) {
+        setAgentId(availableAgents[0].id);
       } else {
         setAgentId('');
       }
     }
-  }, [subsidiaryId, idleAgents, defaultAgentId, isOpen]);
+  }, [subsidiaryId, agents, defaultAgentId, isOpen, agentId]);
 
   const handleSubChange = (id: string) => {
     setSubsidiaryId(id);
@@ -603,24 +594,13 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       setError('Please select a subsidiary.');
       return;
     }
-    if (cost < 0 || payout <= 0) {
-      setError('Cost must be positive or zero, and payout yields must be positive numbers.');
-      return;
-    }
 
     const sub = subsidiaries.find(s => s.id === subsidiaryId);
     if (!sub) return;
 
-    if (sub.balance < cost) {
-      setError(`Insufficient subsidiary balance. Deploying this task requires a budget of ₹${cost.toLocaleString()}, but ${sub.name} only holds ₹${sub.balance.toLocaleString()}.`);
-      return;
-    }
-
-    createTask(title, description, subsidiaryId, agentId, payout, cost);
+    dispatch(createTaskRequest({ title, description, subsidiaryId, assignedAgentId: agentId }));
     setTitle('');
     setDescription('');
-    setCost(0);
-    setPayout(8000);
     setError('');
     onClose();
   };
@@ -672,45 +652,22 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-zinc-400 font-medium">Idle Agent</label>
+            <label className="text-zinc-400 font-medium">Assign Agent</label>
             <select
               value={agentId}
               onChange={(e) => setAgentId(e.target.value)}
               className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-purple-500/50"
             >
               <option value="">Leave Unassigned (Assign Later)</option>
-              {idleAgents.map((a) => (
+              {availableAgents.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.name} ({a.role})
+                  {a.name} ({a.role}) {a.status !== 'idle' ? `[${a.status}]` : ''}
                 </option>
               ))}
             </select>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-zinc-400 font-medium">Deployment Cost (₹)</label>
-            <input
-              type="number"
-              value={cost}
-              onChange={(e) => setCost(Math.max(0, parseInt(e.target.value) || 0))}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-purple-500/50 font-mono"
-              required
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-zinc-400 font-medium">Projected Yield Payout (₹)</label>
-            <input
-              type="number"
-              value={payout}
-              onChange={(e) => setPayout(Math.max(0, parseInt(e.target.value) || 0))}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-purple-500/50 font-mono"
-              required
-            />
-          </div>
-        </div>
 
         <div className="flex justify-end gap-3 pt-3">
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>

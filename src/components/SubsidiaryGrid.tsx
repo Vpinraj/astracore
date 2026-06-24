@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { allocateFundsRequest } from '../store/slices/subsidiarySlice';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { ProgressBar } from './ui/ProgressBar';
@@ -13,7 +14,10 @@ interface SubsidiaryGridProps {
 }
 
 export const SubsidiaryGrid: React.FC<SubsidiaryGridProps> = ({ onViewDetails }) => {
-  const { subsidiaries, agents, tasks, allocateFunds } = useApp();
+  const dispatch = useAppDispatch();
+  const subsidiaries = useAppSelector(state => state.subsidiaries.items);
+  const agents = useAppSelector(state => state.agents.items);
+  const tasks = useAppSelector(state => state.tasks.items);
   const [isSubModalOpen, setIsSubModalOpen] = useState(false);
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -42,7 +46,7 @@ export const SubsidiaryGrid: React.FC<SubsidiaryGridProps> = ({ onViewDetails })
     if (amount) {
       const parsed = parseInt(amount);
       if (!isNaN(parsed) && parsed > 0) {
-        allocateFunds(subId, parsed);
+        dispatch(allocateFundsRequest({ subsidiaryId: subId, amount: parsed }));
       } else {
         alert('Invalid amount specified.');
       }

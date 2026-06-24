@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useApp } from '../context/AppContext';
+import { useAppSelector } from '../store/hooks';
 import { GitBranch, ChevronDown, ChevronRight, Building2, Globe, Bot } from 'lucide-react';
 import type { Subsidiary, Agent, Employee } from '../types';
 
@@ -364,7 +364,9 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ node, agents, employees, subs
 };
 
 export const OrgTree: React.FC = () => {
-  const { subsidiaries, agents, employees } = useApp();
+  const subsidiaries = useAppSelector(state => state.subsidiaries.items);
+  const agents = useAppSelector(state => state.agents.items);
+  const employees = useAppSelector(state => state.crm.employees);
   const [selectedNode, setSelectedNode] = useState<OrgNode | null>({ kind: 'root' });
 
   // Group employees by subsidiary + department

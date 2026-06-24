@@ -1,5 +1,6 @@
 import React from 'react';
-import { useApp } from '../context/AppContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { resetStateRequest } from '../store/slices/coreSlice';
 import { Wallet, Landmark, TrendingDown, Network, RefreshCw } from 'lucide-react';
 import { Card } from './ui/Card';
 import { ThemeToggle } from './ThemeToggle';
@@ -9,7 +10,10 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ showMetrics = true }) => {
-  const { subsidiaries, agents, isSyncing, syncError, lastSyncedAt, resetState } = useApp();
+  const dispatch = useAppDispatch();
+  const subsidiaries = useAppSelector(state => state.subsidiaries.items);
+  const agents = useAppSelector(state => state.agents.items);
+  const { isSyncing, syncError, lastSyncedAt } = useAppSelector(state => state.core);
 
   const totalInvestments = subsidiaries.reduce((sum, s) => sum + s.investment, 0);
   const totalExpenses = subsidiaries.reduce((sum, s) => sum + s.expenses, 0);
@@ -84,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({ showMetrics = true }) => {
             ) : (
               <>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="hidden sm:inline">DB Synced {lastSyncedAt ? `@ ${lastSyncedAt.toLocaleTimeString()}` : ''}</span>
+                <span className="hidden sm:inline">DB Synced {lastSyncedAt ? `@ ${new Date(lastSyncedAt).toLocaleTimeString()}` : ''}</span>
                 <span className="sm:hidden">Synced</span>
               </>
             )}
@@ -94,7 +98,7 @@ export const Header: React.FC<HeaderProps> = ({ showMetrics = true }) => {
           <button 
             onClick={() => {
               if (window.confirm("Are you sure you want to reset the database to the default seed state? All custom subsidiaries, hired agents, and active tasks will be overwritten.")) {
-                resetState();
+                dispatch(resetStateRequest());
               }
             }}
             disabled={isSyncing}

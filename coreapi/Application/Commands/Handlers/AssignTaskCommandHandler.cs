@@ -70,31 +70,16 @@ public class AssignTaskCommandHandler : ICommandHandler
             return new CommandResult(false, "System configuration error: Agent's subsidiary reference is missing.");
         }
 
-        // Compute metrics
-        var random = new Random();
-        double taskCost = 0; // Cost defaults to 0 as per requirements
-        var taskPayout = 4000 + random.Next(8000);
-
-        if (sub.Balance < taskCost)
-        {
-            return new CommandResult(
-                false,
-                $"Insufficient funds in {sub.Name} (₹{sub.Balance:N0}) to deploy this task (Requires ₹{taskCost:N0})."
-            );
-        }
-
         var task = await _taskService.CreateTaskAsync(
             taskTitle,
             $"Task assigned by Director command: {taskTitle}.",
             sub.Id,
-            agent.Id,
-            taskPayout,
-            taskCost
+            agent.Id
         );
 
         return new CommandResult(
             true,
-            $"Task dispatch completed. Assigned \"{task.Title}\" to {agent.Role} {agent.Name}. Operational costs: ₹{task.Cost:N0}. Projected yields: ₹{task.Payout:N0}."
+            $"Task dispatch completed. Assigned \"{task.Title}\" to {agent.Role} {agent.Name}."
         );
     }
 }

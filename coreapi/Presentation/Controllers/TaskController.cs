@@ -24,7 +24,7 @@ public class TaskController : ControllerBase
         {
             return BadRequest("Invalid task attributes");
         }
-        var task = await _taskService.CreateTaskAsync(req.Title, req.Description, req.SubsidiaryId, req.AssignedAgentId ?? string.Empty, req.Payout, req.Cost);
+        var task = await _taskService.CreateTaskAsync(req.Title, req.Description, req.SubsidiaryId, req.AssignedAgentId ?? string.Empty);
         return Ok(task);
     }
 
@@ -49,4 +49,21 @@ public class TaskController : ControllerBase
         await _taskService.StartTaskAsync(req.TaskId);
         return Ok(new { success = true });
     }
+
+    [HttpPost("task/{taskId}/answer")]
+    public async Task<IActionResult> AnswerTaskQuestion(string taskId, [FromBody] AnswerTaskRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(taskId) || req == null || string.IsNullOrWhiteSpace(req.Answer))
+        {
+            return BadRequest("Invalid answer request");
+        }
+        
+        await _taskService.ResumeTaskAsync(taskId, req.Answer);
+        return Ok(new { success = true });
+    }
+}
+
+public class AnswerTaskRequest
+{
+    public string Answer { get; set; } = string.Empty;
 }

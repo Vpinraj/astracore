@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useApp } from '../context/AppContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { createEmployeeRequest, deleteEmployeeRequest } from '../store/slices/crmSlice';
 import { Users2, Plus, Briefcase, Mail, Phone, Calendar, Trash2, Building2, Search } from 'lucide-react';
 
 
@@ -35,7 +36,10 @@ interface CreateEmployeeModalProps {
 }
 
 export const CreateEmployeeModal: React.FC<CreateEmployeeModalProps> = ({ isOpen, onClose }) => {
-  const { subsidiaries, agents, employees: existingEmployees, createEmployee } = useApp();
+  const dispatch = useAppDispatch();
+  const subsidiaries = useAppSelector(state => state.subsidiaries.items);
+  const agents = useAppSelector(state => state.agents.items);
+  const existingEmployees = useAppSelector(state => state.crm.employees);
   const [name, setName] = useState('');
   const [designation, setDesignation] = useState('');
   const [department, setDepartment] = useState('Engineering');
@@ -71,7 +75,7 @@ export const CreateEmployeeModal: React.FC<CreateEmployeeModalProps> = ({ isOpen
     setIsSubmitting(true);
     setError('');
     try {
-      await createEmployee(name, designation, department, subsidiaryId, email, phone, salary, joinDate, reportsToId, reportsToName, avatar, status);
+      dispatch(createEmployeeRequest({ name, designation, department, subsidiaryId, email, phone, salary, joinDate, reportsToId, reportsToName, avatar, status }));
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to create employee.');
@@ -196,7 +200,9 @@ export const CreateEmployeeModal: React.FC<CreateEmployeeModalProps> = ({ isOpen
 };
 
 export const EmployeeDirectory: React.FC = () => {
-  const { employees, subsidiaries, deleteEmployee } = useApp();
+  const dispatch = useAppDispatch();
+  const employees = useAppSelector(state => state.crm.employees);
+  const subsidiaries = useAppSelector(state => state.subsidiaries.items);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [filterSub, setFilterSub] = useState('all');
   const [filterDept, setFilterDept] = useState('all');
@@ -240,116 +246,119 @@ export const EmployeeDirectory: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-600" />
-          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search team..."
-            className="bg-zinc-900 border border-zinc-800 rounded-lg pl-7 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-purple-500/50 w-40" />
+      <div className="flex flex-wrap items-center gap-2 bg-zinc-950/20 p-4 border border-zinc-900 rounded-xl">
+        <div className="space-y-1 flex-1 min-w-[140px] max-w-xs">
+          <span className="text-[10px] text-zinc-500 font-mono block">SEARCH EMPLOYEES</span>
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search team..."
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none focus:border-purple-500/50" />
+          </div>
         </div>
-        <select value={filterSub} onChange={e => setFilterSub(e.target.value)}
-          className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-300 focus:outline-none">
-          <option value="all">All Entities</option>
-          <option value="common">Common (HQ)</option>
-          {subsidiaries.filter(s => s.id !== 'common').map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
-          className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-300 focus:outline-none">
-          <option value="all">All Departments</option>
-          {departments.map(d => <option key={d}>{d}</option>)}
-        </select>
+        <div className="space-y-1 flex-1 min-w-[140px] max-w-[200px]">
+          <span className="text-[10px] text-zinc-500 font-mono block">FILTER ENTITY</span>
+          <select value={filterSub} onChange={e => setFilterSub(e.target.value)}
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-purple-500/50 cursor-pointer">
+            <option value="all">All Entities</option>
+            <option value="common">Common (HQ)</option>
+            {subsidiaries.filter(s => s.id !== 'common').map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div className="space-y-1 flex-1 min-w-[140px] max-w-[200px]">
+          <span className="text-[10px] text-zinc-500 font-mono block">FILTER DEPARTMENT</span>
+          <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-purple-500/50 cursor-pointer">
+            <option value="all">All Departments</option>
+            {departments.map(d => <option key={d}>{d}</option>)}
+          </select>
+        </div>
       </div>
 
-      {/* Employee Grid */}
-      {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <Users2 size={32} className="text-zinc-700 mb-3" />
-          <p className="text-sm text-zinc-500">No team members found</p>
-          <p className="text-xs text-zinc-700 mt-1">Add your first human employee to get started</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map(emp => (
-            <div key={emp.id} className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-4 space-y-3 hover:border-zinc-700/60 transition-all group">
-              {/* Avatar + Name */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700/50 flex items-center justify-center text-xl flex-shrink-0">
-                    {emp.avatar}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-zinc-100 truncate">{emp.name}</p>
-                    <p className="text-[10px] text-zinc-500 truncate">{emp.designation}</p>
-                  </div>
-                </div>
-                <span className={`shrink-0 text-[8px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-md border ${STATUS_COLORS[emp.status] ?? 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
-                  {emp.status}
-                </span>
-              </div>
-
-              {/* Dept + Entity */}
-              <div className="flex flex-wrap gap-1.5">
-                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-md border ${DEPT_COLORS[emp.department] ?? 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
-                  {emp.department}
-                </span>
-                <span className="text-[9px] text-zinc-600 bg-zinc-800/50 border border-zinc-800/60 rounded-md px-1.5 py-0.5">
-                  {emp.subsidiaryName || emp.subsidiaryId}
-                </span>
-              </div>
-
-              {/* Details */}
-              <div className="space-y-1.5 text-[10px] text-zinc-500">
-                {emp.email && (
-                  <div className="flex items-center gap-1.5">
-                    <Mail size={9} className="shrink-0 text-zinc-700" />
-                    <span className="truncate">{emp.email}</span>
-                  </div>
-                )}
-                {emp.phone && (
-                  <div className="flex items-center gap-1.5">
-                    <Phone size={9} className="shrink-0 text-zinc-700" />
-                    <span>{emp.phone}</span>
-                  </div>
-                )}
-                {emp.salary > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <Briefcase size={9} className="shrink-0 text-zinc-700" />
-                    <span>{fmtSalary(emp.salary)}</span>
-                  </div>
-                )}
-                {emp.joinDate && (
-                  <div className="flex items-center gap-1.5">
-                    <Calendar size={9} className="shrink-0 text-zinc-700" />
-                    <span>{emp.joinDate}</span>
-                  </div>
-                )}
-                {emp.reportsToName && (
-                  <div className="flex items-center gap-1.5">
-                    <Building2 size={9} className="shrink-0 text-zinc-700" />
-                    <span className="truncate">Reports to: {emp.reportsToName}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Delete */}
-              <div className="pt-1 border-t border-zinc-800/60">
-                {confirmDeleteId === emp.id ? (
-                  <div className="flex gap-1.5">
-                    <button onClick={() => deleteEmployee(emp.id).then(() => setConfirmDeleteId(null))}
-                      className="flex-1 text-[10px] py-1 bg-red-700 hover:bg-red-600 text-white rounded-md">Confirm</button>
-                    <button onClick={() => setConfirmDeleteId(null)}
-                      className="flex-1 text-[10px] py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-md">Cancel</button>
-                  </div>
-                ) : (
-                  <button onClick={() => setConfirmDeleteId(emp.id)}
-                    className="w-full flex items-center justify-center gap-1 text-[9px] text-zinc-700 hover:text-red-500 py-1 transition-colors opacity-0 group-hover:opacity-100">
-                    <Trash2 size={9} /> Remove
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Employee Table */}
+      <div className="overflow-x-auto rounded-xl border border-zinc-900 bg-zinc-950/30">
+        <table className="w-full min-w-[800px] text-left border-collapse text-xs">
+          <thead>
+            <tr className="bg-zinc-950/60 border-b border-zinc-900 text-zinc-500 font-mono text-[10px] uppercase tracking-wider">
+              <th className="p-4 pl-5">Employee</th>
+              <th className="p-4">Designation</th>
+              <th className="p-4">Department</th>
+              <th className="p-4">Entity</th>
+              <th className="p-4">Status</th>
+              <th className="p-4 pr-5 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-900/60">
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-8 md:p-12 text-center text-zinc-500 bg-zinc-950/15">
+                  <Users2 className="mx-auto text-zinc-700 w-10 h-10 mb-3" />
+                  <p className="text-sm font-semibold">No team members found</p>
+                  <p className="text-xs text-zinc-600 mt-1">Try modifying your filter options or add a new human employee.</p>
+                </td>
+              </tr>
+            ) : (
+              filtered.map(emp => (
+                <tr key={emp.id} className="hover:bg-zinc-900/20 text-zinc-300 transition-colors group">
+                  <td className="p-4 pl-5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="text-xl w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
+                        {emp.avatar}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-zinc-100 truncate">{emp.name}</p>
+                        <div className="flex items-center gap-2 text-[10px] text-zinc-500 mt-0.5">
+                          {emp.email && <span className="truncate" title={emp.email}>{emp.email}</span>}
+                          {emp.email && emp.phone && <span>·</span>}
+                          {emp.phone && <span className="truncate">{emp.phone}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-4 font-medium text-zinc-200">
+                    {emp.designation}
+                  </td>
+                  <td className="p-4">
+                    <span className={`text-[10px] font-semibold px-2 py-1 rounded-md border ${DEPT_COLORS[emp.department] ?? 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
+                      {emp.department}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 size={13} className="text-zinc-600" />
+                      <span className="font-medium text-zinc-300 truncate">
+                        {emp.subsidiaryName || emp.subsidiaryId}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <span className={`shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-md border ${STATUS_COLORS[emp.status] ?? 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
+                      {emp.status}
+                    </span>
+                  </td>
+                  <td className="p-4 pr-5 text-right">
+                    {confirmDeleteId === emp.id ? (
+                      <div className="flex gap-1.5 justify-end">
+                        <button onClick={() => {
+                            dispatch(deleteEmployeeRequest(emp.id));
+                            setConfirmDeleteId(null);
+                          }}
+                          className="text-[10px] px-2 py-1 bg-red-700 hover:bg-red-600 text-white rounded-md">Confirm</button>
+                        <button onClick={() => setConfirmDeleteId(null)}
+                          className="text-[10px] px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-md">Cancel</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmDeleteId(emp.id)}
+                        className="text-[10px] text-zinc-500 hover:text-red-500 py-1 px-2 rounded-md hover:bg-red-500/10 transition-colors flex items-center gap-1.5 ml-auto opacity-0 group-hover:opacity-100">
+                        <Trash2 size={12} /> Remove
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {isCreateOpen && <CreateEmployeeModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} />}
     </div>

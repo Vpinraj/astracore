@@ -7,8 +7,16 @@ using CoreApi.Application.Commands;
 using CoreApi.Application.Commands.Handlers;
 using CoreApi.Presentation.Filters;
 using System;
-
+using coreapi.Application.Services;
+using coreapi.Infrastructure.AI;
+using coreapi.Infrastructure.AI.Providers;
 var builder = WebApplication.CreateBuilder(args);
+
+var geminiKey = builder.Configuration.GetValue<string>("GEMINI_API_KEY");
+if (!string.IsNullOrEmpty(geminiKey))
+{
+    Environment.SetEnvironmentVariable("GEMINI_API_KEY", geminiKey);
+}
 
 // Add controllers with global API exception handling filter
 builder.Services.AddControllers(options =>
@@ -69,6 +77,7 @@ builder.Services.AddSingleton<ITransactionService, TransactionService>();
 builder.Services.AddSingleton<ILeadService, LeadService>();
 builder.Services.AddSingleton<IEmployeeService, EmployeeService>();
 builder.Services.AddSingleton<ISimulationEngine, SimulationEngine>();
+builder.Services.AddSingleton<ITaskProcessorService, TaskProcessorService>();
 
 // Register NLP Command Handlers
 builder.Services.AddSingleton<ICommandHandler, CreateSubsidiaryCommandHandler>();
@@ -77,6 +86,14 @@ builder.Services.AddSingleton<ICommandHandler, AllocateFundsCommandHandler>();
 builder.Services.AddSingleton<ICommandHandler, AssignTaskCommandHandler>();
 builder.Services.AddSingleton<ICommandHandler, StatusCommandHandler>();
 builder.Services.AddSingleton<DirectorCommandExecutor>();
+
+// Register AI Semantic Services
+builder.Services.AddSingleton<IModelProvider, OpenAIProvider>();
+builder.Services.AddSingleton<IModelProvider, GeminiProvider>();
+builder.Services.AddSingleton<IModelProvider, LocalLlmProvider>();
+builder.Services.AddSingleton<IKernelProviderService, KernelProviderService>();
+builder.Services.AddSingleton<SemanticAgentService>();
+builder.Services.AddSingleton<GroupChatService>();
 
 var app = builder.Build();
 
@@ -93,5 +110,34 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapPost("/api/test-agent", async (coreapi.Core.Entities.ChatRequest request, SemanticAgentService service) =>
+{
+    try
+    {
+        var response = await service.ExecuteAgentTaskAsync(request);
+        return Results.Ok(response);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+
+
+// Map any broken gemma:latest references to the actual installed gemma4:latest model
+using (var scope = app.Services.CreateScope())
+{
+    var agentService = scope.ServiceProvider.GetRequiredService<IAgentService>();
+    var agents = await agentService.GetAllAsync();
+    foreach (var agent in agents)
+    {
+        if (agent.ModelId == "gemma:latest" || agent.ModelId == "llama-3.3-70b")
+        {
+            agent.ModelId = "gemma4:latest";
+            await agentService.SaveAsync(agent);
+        }
+    }
+}
 
 app.Run();

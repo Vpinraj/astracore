@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useApp } from '../context/AppContext';
+import { useAppSelector } from '../store/hooks';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
 import { Search, ChevronDown, ChevronUp, SlidersHorizontal, X, FileText, Globe } from 'lucide-react';
@@ -10,7 +10,9 @@ interface BalanceSheetProps {
 }
 
 export const BalanceSheet: React.FC<BalanceSheetProps> = ({ subsidiaryId }) => {
-  const { transactions, subsidiaries, agents } = useApp();
+  const transactions = useAppSelector(state => state.finance.transactions);
+  const subsidiaries = useAppSelector(state => state.subsidiaries.items);
+  const agents = useAppSelector(state => state.agents.items);
 
   // Filters State
   const [selectedType, setSelectedType] = useState<string>('All');

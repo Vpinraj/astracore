@@ -24,7 +24,7 @@ public class AgentController : ControllerBase
         {
             return BadRequest("Invalid agent name or role");
         }
-        var agent = await _agentService.HireAgentAsync(req.Name, req.Role, req.SubsidiaryId, req.Instructions, req.ModelId, req.CustomOverrides, req.DeductionFee);
+        var agent = await _agentService.HireAgentAsync(req.Name, req.Role, req.SubsidiaryId, req.Instructions, req.ModelId, req.CustomOverrides);
         return Ok(agent);
     }
 }

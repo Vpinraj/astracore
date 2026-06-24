@@ -1,10 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { clearLogsRequest } from '../store/slices/coreSlice';
 import { Terminal, ShieldAlert, CheckCircle, Info, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from './ui/Button';
 
 export const TaskTerminal: React.FC = () => {
-  const { logs, clearLogs } = useApp();
+  const dispatch = useAppDispatch();
+  const logs = useAppSelector(state => state.core.logs);
+  
+  const handleClearLogs = () => {
+    dispatch(clearLogsRequest());
+  };
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useState<'all' | 'agent' | 'success' | 'info'>('all');
 
@@ -84,7 +90,7 @@ export const TaskTerminal: React.FC = () => {
           <Button
             variant="ghost"
             size="xs"
-            onClick={clearLogs}
+            onClick={handleClearLogs}
             className="p-1 text-zinc-500 hover:text-rose-400 ml-1"
             title="Clear Stream Logs"
           >

@@ -6,11 +6,12 @@ namespace CoreApi.Application.Services.Interfaces;
 
 public interface ITaskService
 {
-    Task<TaskItem> CreateTaskAsync(string title, string description, string subsidiaryId, string assignedAgentId, double payout, double cost);
+    Task<TaskItem> CreateTaskAsync(string title, string description, string subsidiaryId, string assignedAgentId = "");
     Task StartTaskAsync(string taskId);
     Task AssignAgentAsync(string taskId, string agentId);
     Task<IEnumerable<TaskItem>> GetAllAsync();
     Task<TaskItem?> GetByIdAsync(string id);
     Task SaveAsync(TaskItem task);
     Task DeleteAsync(string id);
+    Task ResumeTaskAsync(string taskId, string answer);
 }

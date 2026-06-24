@@ -1,5 +1,8 @@
-import { useState } from 'react';
-import { AppProvider } from './context/AppContext';
+import { useState, useEffect } from 'react';
+import { Provider } from 'react-redux';
+import { store } from './store';
+import { useAppDispatch } from './store/hooks';
+import { fetchStateRequest, tickRequest } from './store/slices/coreSlice';
 import { ThemeProvider } from './theme/ThemeContext';
 import { Sidebar } from './components/Sidebar';
 import type { TabType } from './components/Sidebar';
@@ -10,16 +13,31 @@ import { SubsidiaryDetail } from './components/SubsidiaryDetail';
 import { AgentBoard } from './components/AgentBoard';
 import { TaskTerminal } from './components/TaskTerminal';
 import { TaskBoard } from './components/TaskBoard';
-import { DirectorAgent } from './components/DirectorAgent';
+import { QuestionBoard } from './components/QuestionBoard';
+import { AgentChatWindow } from './components/AgentChatWindow';
+
 import { LeadCRM } from './components/LeadCRM';
 import { EmployeeDirectory } from './components/EmployeeDirectory';
 import { OrgTree } from './components/OrgTree';
 import type { Subsidiary } from './types';
 
 function DashboardLayout() {
+  const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [selectedSubsidiary, setSelectedSubsidiary] = useState<Subsidiary | null>(null);
   const [teamSubTab, setTeamSubTab] = useState<'directory' | 'org'>('directory');
+
+  useEffect(() => {
+    // Initial fetch to populate UI
+    dispatch(fetchStateRequest());
+
+    // Start simulation tick loop
+    const interval = setInterval(() => {
+      dispatch(tickRequest());
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [dispatch]);
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
@@ -46,6 +64,8 @@ function DashboardLayout() {
         return <AgentBoard />;
       case 'tasks':
         return <TaskBoard />;
+      case 'questions':
+        return <QuestionBoard />;
       case 'terminal':
         return <TaskTerminal />;
       case 'leads':
@@ -97,7 +117,7 @@ function DashboardLayout() {
         </div>
       </main>
 
-      <DirectorAgent />
+      <AgentChatWindow />
     </div>
   );
 }
@@ -105,9 +125,9 @@ function DashboardLayout() {
 function App() {
   return (
     <ThemeProvider>
-      <AppProvider>
+      <Provider store={store}>
         <DashboardLayout />
-      </AppProvider>
+      </Provider>
     </ThemeProvider>
   );
 }

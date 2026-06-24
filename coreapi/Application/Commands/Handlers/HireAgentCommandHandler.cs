@@ -78,7 +78,7 @@ public class HireAgentCommandHandler : ICommandHandler
         var textInfo = CultureInfo.CurrentCulture.TextInfo;
         var formattedName = textInfo.ToTitleCase(rawName);
 
-        var agent = await _agentService.HireAgentAsync(formattedName, matchedRole, sub.Id, deductionFee: deductionFee);
+        var agent = await _agentService.HireAgentAsync(formattedName, matchedRole, sub.Id);
 
         return new CommandResult(
             true,

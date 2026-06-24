@@ -156,17 +156,12 @@ public class AgentService : IAgentService
         _transactionService = transactionService;
     }
 
-    public async Task<Agent> HireAgentAsync(string name, string role, string subsidiaryId, string? instructions = null, string? modelId = null, AgentRoleDefinition? customOverrides = null, double deductionFee = 0)
+    public async Task<Agent> HireAgentAsync(string name, string role, string subsidiaryId, string? instructions = null, string? modelId = null, AgentRoleDefinition? customOverrides = null)
     {
         var subsidiary = await _subsidiaryRepository.GetByIdAsync(subsidiaryId);
         if (subsidiary == null)
         {
             throw new EntityNotFoundException(nameof(Subsidiary), subsidiaryId);
-        }
-
-        if (subsidiary.Balance < deductionFee)
-        {
-            throw new InsufficientFundsException($"Insufficient subsidiary balance. Hiring fees require ₹{deductionFee:N0}, but {subsidiary.Name} only holds ₹{subsidiary.Balance:N0}.");
         }
 
         var blueprint = BLUEPRINTS.FirstOrDefault(b => b.Name.Equals(role, StringComparison.OrdinalIgnoreCase));
@@ -217,7 +212,7 @@ public class AgentService : IAgentService
             Role = role,
             RoleDefinition = roleDef,
             Instructions = finalInstructions,
-            ModelId = modelId ?? "gemini-2.0-flash",
+            ModelId = modelId ?? "gemma4:latest",
             SubsidiaryId = subsidiaryId,
             Status = "idle",
             Avatar = avatar,
@@ -229,33 +224,10 @@ public class AgentService : IAgentService
             }
         };
 
-        if (deductionFee > 0)
-        {
-            double subtotal = Math.Round(deductionFee / 1.18, 2);
-            double tax = Math.Round(subtotal * 0.09, 2);
-            double diff = deductionFee - (subtotal + tax + tax);
-            subtotal += diff;
-
-            await _transactionService.RecordTransactionAsync(
-                subsidiaryId: subsidiaryId,
-                type: "Expense",
-                subtotal: subtotal,
-                discount: 0,
-                cgst: tax,
-                sgst: tax,
-                totalAmount: deductionFee,
-                amountPaidOrReceived: deductionFee,
-                description: $"AI Agent Server Deployment: {name} ({role})",
-                referenceNumber: $"INV-HIRE-{DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 100000}",
-                partnerName: "Core Enterprise HQ",
-                processedByAgentId: agent.Id
-            );
-        }
-
         await _agentRepository.SaveAsync(agent);
 
         await _logService.AddLogAsync(
-            $"AI Agent \"{name}\" ({role}) deployed under {subsidiary.Name}. Server initialization expense: ₹{deductionFee:N0}. Model: {agent.ModelId}. Temp: {roleDef.Temperature}, Tools: {roleDef.Tools.Count(t => t.Enabled)} active.",
+            $"AI Agent \"{name}\" ({role}) deployed under {subsidiary.Name}. Model: {agent.ModelId}. Temp: {roleDef.Temperature}, Tools: {roleDef.Tools.Count(t => t.Enabled)} active.",
             "agent_action",
             subsidiaryName: subsidiary.Name,
             agentName: name

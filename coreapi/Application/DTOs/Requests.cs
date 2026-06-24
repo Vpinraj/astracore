@@ -22,17 +22,14 @@ public record HireAgentRequest(
     string SubsidiaryId,
     string? Instructions = null,
     string? ModelId = null,
-    AgentRoleDefinition? CustomOverrides = null,
-    double DeductionFee = 0
+    AgentRoleDefinition? CustomOverrides = null
 );
 
 public record CreateTaskRequest(
     string Title,
     string Description,
     string SubsidiaryId,
-    string AssignedAgentId,
-    double Payout,
-    double Cost
+    string AssignedAgentId
 );
 
 public record AllocateFundsRequest(

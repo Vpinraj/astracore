@@ -227,120 +227,24 @@ public class SimulationEngine : ISimulationEngine
 
             if (agent == null) continue;
 
-            // Step progress
-            double baseStep = 6 + random.NextDouble() * 8;
-            int step = Math.Min(100 - task.Progress, (int)Math.Round(baseStep * agent.Efficiency));
-            task.Progress += step;
-
-            // Pick a thought
-            var thoughts = AGENT_THOUGHTS.TryGetValue(agent.Role, out var tList)
-                ? tList
-                : new List<string> { "Processing steps...", "Refining data structures..." };
-
-            var thought = thoughts[random.Next(thoughts.Count)];
-            task.Logs.Add($"{agent.Role} {agent.Name}: {thought}");
-
-            if (task.Progress < 100)
+            // Wait for LLM to complete the task
+            if (task.Progress < 99)
             {
-                // Occasional global logging
-                if (random.NextDouble() > 0.7)
-                {
-                    await _logService.AddLogAsync(
-                        $"{agent.Name} is working on \"{task.Title}\": {thought}",
-                        "agent_action",
-                        subsidiaryName: sub?.Name,
-                        agentName: agent.Name
-                    );
-                }
+                // Progress is updated by TaskProcessorService when the LLM finishes
             }
-            else
+            else if (task.Progress >= 100)
             {
-                // Task is completed
+                // Task is completed by LLM
                 task.Status = "completed";
-                task.Logs.Add($"Task completed! Revenue payload generated: ₹{task.Payout:N0}");
+                task.Logs.Add($"Task completed successfully.");
+                if (!string.IsNullOrWhiteSpace(task.Output))
+                {
+                    task.Logs.Add($"Agent Output: {task.Output}");
+                }
 
                 if (sub != null)
                 {
-                    // 1. Record the primary task completion as a "Sale" transaction
-                    double payout = task.Payout;
-                    double subtotal = Math.Round(payout / 1.18, 2);
-                    double tax = Math.Round(subtotal * 0.09, 2);
-                    double diff = payout - (subtotal + tax + tax);
-                    subtotal += diff;
-
-                    string invNum = $"INV-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % 1000000:D6}";
-                    await _transactionService.RecordTransactionAsync(
-                        subsidiaryId: sub.Id,
-                        type: "Sale",
-                        subtotal: subtotal,
-                        discount: 0,
-                        cgst: tax,
-                        sgst: tax,
-                        totalAmount: payout,
-                        amountPaidOrReceived: payout,
-                        description: $"Revenue payout for task completion: {task.Title}",
-                        referenceNumber: invNum,
-                        partnerName: "Enterprise Client",
-                        documentUrl: "",
-                        processedByAgentId: agent.Id,
-                        status: "Completed"
-                    );
-
-                    // 2. Generate random procurement transactions (Expense)
-                    int procurementCount = random.Next(1, 3);
-                    for (int i = 0; i < procurementCount; i++)
-                    {
-                        double cost = random.Next(500, 2500);
-                        double pSubtotal = Math.Round(cost / 1.18, 2);
-                        double pTax = Math.Round(pSubtotal * 0.09, 2);
-                        double pDiff = cost - (pSubtotal + pTax + pTax);
-                        pSubtotal += pDiff;
-
-                        string billNum = $"BILL-{random.Next(100000, 999999)}";
-                        string[] vendors = { "AWS Cloud Services", "Google Cloud Platform", "OpenAI API Dev", "GitHub Enterprise", "Slack Technologies" };
-                        string vendor = vendors[random.Next(vendors.Length)];
-
-                        await _transactionService.RecordTransactionAsync(
-                            subsidiaryId: sub.Id,
-                            type: "Procurement",
-                            subtotal: pSubtotal,
-                            discount: 0,
-                            cgst: pTax,
-                            sgst: pTax,
-                            totalAmount: cost,
-                            amountPaidOrReceived: cost,
-                            description: $"Procured technical resources & API credits",
-                            referenceNumber: billNum,
-                            partnerName: vendor,
-                            documentUrl: "",
-                            processedByAgentId: agent.Id,
-                            status: "Completed"
-                        );
-                    }
-
-                    // 3. Generate CRM leads (not financial transactions)
-                    string[] sources = { "Inbound", "Outbound", "Referral", "Campaign" };
-                    string[] stages = { "New", "Contacted", "Qualified" };
-                    string[] companies = { "Aura Industries", "Zenith Systems", "NovaTech Corp", "Orbita Labs", "Quantum Dynamics", "BlueStar Solutions" };
-                    int leadCount = random.Next(1, 4);
-                    for (int i = 0; i < leadCount; i++)
-                    {
-                        string contactFirst = new string[] { "Priya", "Rahul", "Ananya", "Arjun", "Deepa", "Vikram" }[random.Next(6)];
-                        string contactLast = new string[] { "Sharma", "Gupta", "Patel", "Nair", "Reddy", "Singh" }[random.Next(6)];
-                        await _leadService.CreateLeadAsync(
-                            subsidiaryId: sub.Id,
-                            contactName: $"{contactFirst} {contactLast}",
-                            companyName: companies[random.Next(companies.Length)],
-                            email: $"{contactFirst.ToLower()}.{contactLast.ToLower()}@example.com",
-                            phone: $"+91 98{random.Next(10000000, 99999999)}",
-                            source: sources[random.Next(sources.Length)],
-                            stage: stages[random.Next(stages.Length)],
-                            estimatedValue: random.Next(10000, 500000),
-                            assignedToId: agent.Id,
-                            assignedToName: agent.Name,
-                            notes: $"Lead generated from completed task: {task.Title}"
-                        );
-                    }
+                    // Random generation of procurements and leads has been disabled.
                 }
 
                 agent.Status = "idle";
@@ -349,7 +253,7 @@ public class SimulationEngine : ISimulationEngine
                 await _agentRepository.SaveAsync(agent);
 
                 await _logService.AddLogAsync(
-                    $"SUCCESS: {agent.Name} ({agent.Role}) completed \"{task.Title}\". Generated ₹{task.Payout:N0} in profit for {sub?.Name}!",
+                    $"SUCCESS: {agent.Name} ({agent.Role}) completed \"{task.Title}\".",
                     "success",
                     subsidiaryName: sub?.Name,
                     agentName: agent.Name
@@ -379,50 +283,6 @@ public class SimulationEngine : ISimulationEngine
         foreach (var log in seed.Logs)
             await _logRepository.SaveAsync(log);
 
-        // Seed Transaction History (GST-compliant)
-        // 1. CyberCore AI (sub-1)
-        await _transactionService.RecordTransactionAsync("sub-1", "Investment", 150000, 0, 0, 0, 150000, 150000, "Initial seed investment funding", "INV-SEED-001", "Parent Corp");
-        await _transactionService.RecordTransactionAsync("sub-1", "Sale", 33898.31, 0, 3050.85, 3050.85, 40000, 40000, "Enterprise software licensing agreement", "INV-2026-001", "CoreTech Inc", processedByAgentId: "agent-1");
-        await _transactionService.RecordTransactionAsync("sub-1", "Procurement", 21186.44, 0, 1906.78, 1906.78, 25000, 25000, "GPU server nodes provisioning", "BILL-2026-001", "AWS Cloud Services", processedByAgentId: "agent-2");
-
-        // 2. Nexus Media (sub-2)
-        await _transactionService.RecordTransactionAsync("sub-2", "Investment", 100000, 0, 0, 0, 100000, 100000, "Initial seed investment funding", "INV-SEED-002", "Parent Corp");
-        await _transactionService.RecordTransactionAsync("sub-2", "Sale", 4237.29, 0, 381.36, 381.36, 5000, 5000, "Creative design consultation assets", "INV-2026-002", "Creative Hub", processedByAgentId: "agent-3");
-        await _transactionService.RecordTransactionAsync("sub-2", "Procurement", 12711.86, 0, 1144.07, 1144.07, 15000, 15000, "Enterprise design suite licenses", "BILL-2026-002", "Adobe Systems", processedByAgentId: "agent-4");
-
-        // 3. Common (common)
-        await _transactionService.RecordTransactionAsync("common", "Investment", 50000, 0, 0, 0, 50000, 50000, "Initial general operations allocation", "INV-SEED-HQ", "Parent Corp");
-        await _transactionService.RecordTransactionAsync("common", "Expense", 1694.92, 0, 152.54, 152.54, 2000, 2000, "Office maintenance and utilities fee", "BILL-2026-003", "MG Road Tech Park");
-
-        // Seed CRM Leads (now separate from financial transactions)
-        // CyberCore AI leads
-        await _leadService.CreateLeadAsync("sub-1", "Priya Sharma", "Aura Industries", "priya.sharma@aura.in", "+91 9812345678", "Inbound", "Qualified", 250000, "agent-1", "Ada Lovelace", "Interested in foundation model licensing");
-        await _leadService.CreateLeadAsync("sub-1", "Rahul Gupta", "Zenith Systems", "rahul.gupta@zenith.io", "+91 9876543210", "Referral", "Contacted", 180000, "agent-2", "Alan Turing", "Referred by CyberCore partner");
-        await _leadService.CreateLeadAsync("sub-1", "Ananya Patel", "NovaTech Corp", "ananya.p@novatech.com", "+91 9765432109", "Campaign", "New", 500000, "agent-1", "Ada Lovelace", "Downloaded AI whitepaper");
-        await _leadService.CreateLeadAsync("sub-1", "Arjun Nair", "Orbita Labs", "arjun.nair@orbita.io", "+91 9654321098", "Outbound", "Proposal", 750000, "agent-2", "Alan Turing", "Proposal sent for AI pipeline integration");
-
-        // Nexus Media leads
-        await _leadService.CreateLeadAsync("sub-2", "Deepa Reddy", "Bright Media Group", "deepa.r@brightmedia.co", "+91 9543210987", "Inbound", "New", 120000, "agent-3", "Claude Shannon", "Requested branding consultation");
-        await _leadService.CreateLeadAsync("sub-2", "Vikram Singh", "BlueWave Ads", "vikram.s@bluewave.in", "+91 9432109876", "Outbound", "Contacted", 85000, "agent-4", "Grace Hopper", "Outreach for programmatic advertising");
-        await _leadService.CreateLeadAsync("sub-2", "Riya Mehta", "PixelForge Studio", "riya.m@pixelforge.co", "+91 9321098765", "Referral", "Won", 200000, "agent-3", "Claude Shannon", "Contract signed for 6-month content retainer");
-
-        // Common (HQ) leads
-        await _leadService.CreateLeadAsync("common", "Suresh Krishnan", "GlobalTech Partners", "suresh.k@globaltech.com", "+91 9210987654", "Campaign", "Qualified", 1500000, "", "HQ Director", "Strategic partnership inquiry for group services");
-
-        // Seed Human Employees
-        // CyberCore AI employees
-        await _employeeService.CreateEmployeeAsync("Kavya Iyer", "Senior Software Engineer", "Engineering", "sub-1", "kavya.iyer@cybercore.ai", "+91 80 4123 0001", 120000, "2024-03-15", "agent-2", "Alan Turing", "👩‍💻", "Active");
-        await _employeeService.CreateEmployeeAsync("Rohan Malhotra", "ML Research Engineer", "Engineering", "sub-1", "rohan.m@cybercore.ai", "+91 80 4123 0002", 140000, "2024-01-10", "agent-2", "Alan Turing", "👨‍🔬", "Active");
-        await _employeeService.CreateEmployeeAsync("Sneha Kapoor", "Product Analyst", "Product", "sub-1", "sneha.k@cybercore.ai", "+91 80 4123 0003", 95000, "2024-06-01", "agent-1", "Ada Lovelace", "👩‍💼", "Active");
-
-        // Nexus Media employees
-        await _employeeService.CreateEmployeeAsync("Aditya Rao", "Creative Director", "Design", "sub-2", "aditya.r@nexusmedia.co", "+91 22 2654 0001", 110000, "2023-11-20", "agent-3", "Claude Shannon", "🎨", "Active");
-        await _employeeService.CreateEmployeeAsync("Nisha Joshi", "Social Media Manager", "Marketing", "sub-2", "nisha.j@nexusmedia.co", "+91 22 2654 0002", 75000, "2024-02-14", "agent-3", "Claude Shannon", "📱", "Active");
-
-        // Common (HQ) employees
-        await _employeeService.CreateEmployeeAsync("Sanjay Verma", "Head of Finance", "Finance", "common", "sanjay.v@astracore.internal", "+91 80 4999 0001", 200000, "2023-06-01", "", "Director", "💼", "Active");
-        await _employeeService.CreateEmployeeAsync("Meera Pillai", "HR Business Partner", "HR", "common", "meera.p@astracore.internal", "+91 80 4999 0002", 90000, "2023-09-01", "sanjay_placeholder", "Sanjay Verma", "👩‍💼", "Active");
-
         return seed;
     }
 
@@ -434,54 +294,8 @@ public class SimulationEngine : ISimulationEngine
             {
                 new Subsidiary
                 {
-                    Id = "sub-1",
-                    Name = "CyberCore AI",
-                    Industry = "AI Software",
-                    Investment = 0,
-                    Balance = 0,
-                    Expenses = 0,
-                    Profits = 0,
-                    Color = "from-purple-600 to-indigo-600",
-                    BorderColor = "border-purple-500/30",
-                    TextColor = "text-purple-400",
-                    Icon = "Cpu",
-                    LogoUrl = "",
-                    Website = "https://cybercore.ai",
-                    Email = "ops@cybercore.ai",
-                    Phone = "+91 80 4123 4567",
-                    Description = "Advanced artificial intelligence software cluster developing foundation models and agentic workflows.",
-                    Address = "Building 4, Tech Park, Outer Ring Road, Bangalore, India",
-                    BankDetails = "HDFC Bank - A/C: 50200012345678, IFSC: HDFC0000123",
-                    Procurements = 11,
-                    Sales = 27
-                },
-                new Subsidiary
-                {
-                    Id = "sub-2",
-                    Name = "Nexus Media",
-                    Industry = "Creative Agency",
-                    Investment = 0,
-                    Balance = 0,
-                    Expenses = 0,
-                    Profits = 0,
-                    Color = "from-blue-600 to-cyan-600",
-                    BorderColor = "border-blue-500/30",
-                    TextColor = "text-blue-400",
-                    Icon = "Palette",
-                    LogoUrl = "",
-                    Website = "https://nexusmedia.co",
-                    Email = "hello@nexusmedia.co",
-                    Phone = "+91 22 2654 3210",
-                    Description = "Next-generation digital media agency creating interactive marketing campaigns and viral content strategies.",
-                    Address = "Wework Galaxy, MG Road, Bangalore, India",
-                    BankDetails = "ICICI Bank - A/C: 000405123456, IFSC: ICIC0000004",
-                    Procurements = 7,
-                    Sales = 14
-                },
-                new Subsidiary
-                {
                     Id = "common",
-                    Name = "Common",
+                    Name = "Common HQ",
                     Industry = "Global Operations",
                     Investment = 0,
                     Balance = 0,
@@ -502,178 +316,9 @@ public class SimulationEngine : ISimulationEngine
                     Sales = 0
                 }
             },
-            Agents = new List<Agent>
-            {
-                new Agent
-                {
-                    Id = "agent-1",
-                    Name = "Ada Lovelace",
-                    Role = "CEO",
-                    RoleDefinition = new AgentRoleDefinition
-                    {
-                        Name = "CEO",
-                        CommonSkills = new List<string> { "Strategic Planning", "Leadership", "Decision Making", "Stakeholder Management", "Vision Setting" },
-                        Temperature = 0.5, MaxTokens = 2048, OutputFormat = "markdown", MemoryType = "long_term",
-                        Tools = new List<AgentTool>
-                        {
-                            new AgentTool { Name = "read_reports",   Description = "Read financial and operational reports", Enabled = true },
-                            new AgentTool { Name = "send_directive", Description = "Issue directives to subordinate agents", Enabled = true },
-                            new AgentTool { Name = "web_search",     Description = "Search the web for market intelligence", Enabled = true },
-                        }
-                    },
-                    Instructions = "You are the CEO of CyberCore AI. Drive strategic growth, manage agent performance, and make high-level decisions to maximize subsidiary profit.",
-                    ModelId = "gemini-2.0-flash",
-                    SubsidiaryId = "sub-1", Status = "idle", Avatar = "👩‍💼", Level = 4, Efficiency = 1.25,
-                    ConversationHistory = new()
-                    {
-                        new ConversationMessage { Role = "system", Content = "You are the CEO of CyberCore AI. Drive strategic growth, manage agent performance, and make high-level decisions to maximize subsidiary profit.", Timestamp = DateTime.UtcNow.ToString("o") }
-                    }
-                },
-                new Agent
-                {
-                    Id = "agent-2",
-                    Name = "Alan Turing",
-                    Role = "CTO",
-                    RoleDefinition = new AgentRoleDefinition
-                    {
-                        Name = "CTO",
-                        CommonSkills = new List<string> { "System Architecture", "AI/ML Pipelines", "DevOps", "Code Review", "Tech Strategy" },
-                        Temperature = 0.3, MaxTokens = 4096, OutputFormat = "code", MemoryType = "short_term",
-                        Tools = new List<AgentTool>
-                        {
-                            new AgentTool { Name = "code_exec",      Description = "Execute code in a sandboxed runtime",   Enabled = true },
-                            new AgentTool { Name = "read_codebase",  Description = "Read source files from the repository", Enabled = true },
-                            new AgentTool { Name = "web_search",     Description = "Search docs and Stack Overflow",        Enabled = true },
-                            new AgentTool { Name = "deploy_service", Description = "Trigger CI/CD deployment pipeline",     Enabled = false },
-                        }
-                    },
-                    Instructions = "You are the CTO of CyberCore AI. Oversee all technical architecture decisions, AI pipeline quality, and developer productivity.",
-                    ModelId = "gemini-2.0-flash",
-                    SubsidiaryId = "sub-1", Status = "working", ActiveTaskId = "task-1", Avatar = "👨‍💻", Level = 5, Efficiency = 1.4,
-                    ConversationHistory = new()
-                    {
-                        new ConversationMessage { Role = "system", Content = "You are the CTO of CyberCore AI. Oversee all technical architecture decisions, AI pipeline quality, and developer productivity.", Timestamp = DateTime.UtcNow.ToString("o") }
-                    }
-                },
-                new Agent
-                {
-                    Id = "agent-3",
-                    Name = "Claude Shannon",
-                    Role = "CMO",
-                    RoleDefinition = new AgentRoleDefinition
-                    {
-                        Name = "CMO",
-                        CommonSkills = new List<string> { "Brand Strategy", "Growth Marketing", "Campaign Management", "SEO/SEM", "Audience Analytics" },
-                        Temperature = 0.7, MaxTokens = 2048, OutputFormat = "markdown", MemoryType = "short_term",
-                        Tools = new List<AgentTool>
-                        {
-                            new AgentTool { Name = "web_search",    Description = "Research trends and competitor activity", Enabled = true },
-                            new AgentTool { Name = "generate_copy", Description = "Generate ad/content copy",                Enabled = true },
-                            new AgentTool { Name = "send_email",    Description = "Send campaign emails",                    Enabled = false },
-                        }
-                    },
-                    Instructions = "You are the CMO of Nexus Media. Design and execute marketing campaigns that maximize audience reach and drive revenue through creative content.",
-                    ModelId = "gemini-2.0-flash",
-                    SubsidiaryId = "sub-2", Status = "working", ActiveTaskId = "task-2", Avatar = "👨‍💼", Level = 3, Efficiency = 1.05,
-                    ConversationHistory = new()
-                    {
-                        new ConversationMessage { Role = "system", Content = "You are the CMO of Nexus Media. Design and execute marketing campaigns that maximize audience reach and drive revenue through creative content.", Timestamp = DateTime.UtcNow.ToString("o") }
-                    }
-                },
-                new Agent
-                {
-                    Id = "agent-4",
-                    Name = "Grace Hopper",
-                    Role = "CFO",
-                    RoleDefinition = new AgentRoleDefinition
-                    {
-                        Name = "CFO",
-                        CommonSkills = new List<string> { "Financial Analysis", "Budget Allocation", "Risk Assessment", "Cost Optimization", "Forecasting" },
-                        Temperature = 0.2, MaxTokens = 1024, OutputFormat = "json", MemoryType = "long_term",
-                        Tools = new List<AgentTool>
-                        {
-                            new AgentTool { Name = "read_ledger",     Description = "Access the subsidiary financial ledger", Enabled = true },
-                            new AgentTool { Name = "generate_report", Description = "Generate formatted financial reports",   Enabled = true },
-                            new AgentTool { Name = "alert_ceo",       Description = "Send budget alerts to the CEO",         Enabled = true },
-                        }
-                    },
-                    Instructions = "You are the CFO of Nexus Media. Ensure financial discipline, audit expenses, optimize resource allocation, and produce accurate profit forecasts.",
-                    ModelId = "gemini-2.0-flash",
-                    SubsidiaryId = "sub-2", Status = "idle", Avatar = "👩‍💻", Level = 4, Efficiency = 1.15,
-                    ConversationHistory = new()
-                    {
-                        new ConversationMessage { Role = "system", Content = "You are the CFO of Nexus Media. Ensure financial discipline, audit expenses, optimize resource allocation, and produce accurate profit forecasts.", Timestamp = DateTime.UtcNow.ToString("o") }
-                    }
-                }
-            },
-            Tasks = new List<TaskItem>
-            {
-                new TaskItem
-                {
-                    Id = "task-1",
-                    Title = "Train LLM Foundation Model",
-                    Description = "Optimize transformer weights on pre-training datasets to increase model precision.",
-                    AssignedAgentId = "agent-2",
-                    SubsidiaryId = "sub-1",
-                    Status = "in_progress",
-                    Progress = 45,
-                    Payout = 45000,
-                    Cost = 8000,
-                    Duration = 20,
-                    Logs = new List<string> { "Initialized training nodes...", "Loading pre-training tensor weight graphs..." }
-                },
-                new TaskItem
-                {
-                    Id = "task-2",
-                    Title = "Launch viral campaign",
-                    Description = "Design and deploy programmatic ads targeting tech builders and creators.",
-                    AssignedAgentId = "agent-3",
-                    SubsidiaryId = "sub-2",
-                    Status = "in_progress",
-                    Progress = 75,
-                    Payout = 25000,
-                    Cost = 3000,
-                    Duration = 15,
-                    Logs = new List<string> { "Scraping trends...", "Optimizing target keywords..." }
-                }
-            },
-            Logs = new List<ActivityLog>
-            {
-                new ActivityLog
-                {
-                    Id = "log-1",
-                    Timestamp = DateTime.Now.ToShortTimeString(),
-                    Message = "CyberCore AI subsidiary initialized with $150,000 initial investment.",
-                    Type = "info",
-                    SubsidiaryName = "CyberCore AI"
-                },
-                new ActivityLog
-                {
-                    Id = "log-2",
-                    Timestamp = DateTime.Now.ToShortTimeString(),
-                    Message = "Nexus Media subsidiary initialized with $100,000 initial investment.",
-                    Type = "info",
-                    SubsidiaryName = "Nexus Media"
-                },
-                new ActivityLog
-                {
-                    Id = "log-3",
-                    Timestamp = DateTime.Now.ToShortTimeString(),
-                    Message = "CTO Alan Turing started task: Train LLM Foundation Model.",
-                    Type = "agent_action",
-                    SubsidiaryName = "CyberCore AI",
-                    AgentName = "Alan Turing"
-                },
-                new ActivityLog
-                {
-                    Id = "log-4",
-                    Timestamp = DateTime.Now.ToShortTimeString(),
-                    Message = "CMO Claude Shannon started task: Launch viral campaign.",
-                    Type = "agent_action",
-                    SubsidiaryName = "Nexus Media",
-                    AgentName = "Claude Shannon"
-                }
-            }
+            Agents = new List<Agent>(),
+            Tasks = new List<TaskItem>(),
+            Logs = new List<ActivityLog>()
         };
     }
 }
