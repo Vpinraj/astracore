@@ -66,24 +66,33 @@ public class TaskProcessorService : ITaskProcessorService
             
             chatHistory.AddUserMessage(prompt);
 
+            string oldOutput = task.Output ?? string.Empty;
             string outputText = string.Empty;
             bool isBlocked = false;
+            int tokenCount = 0;
 
             try
             {
-                await foreach (var message in skAgent.InvokeAsync(chatHistory))
+                task = await _taskRepository.GetByIdAsync(taskId);
+                if (task != null) {
+                    task.Progress = 10;
+                    await _taskRepository.SaveAsync(task);
+                }
+
+                await foreach (var message in skAgent.InvokeStreamingAsync(chatHistory))
                 {
-                    if (message.Message != null && !string.IsNullOrEmpty(message.Message.Content))
+                    if (message.Message != null && message.Message.Content != null)
                     {
                         var content = message.Message.Content;
-                        outputText += content + "\n";
+                        outputText += content;
+                        tokenCount++;
 
-                        if (content.Contains("[BLOCKING_QUESTION]:"))
+                        if (outputText.Contains("[BLOCKING_QUESTION]:"))
                         {
                             isBlocked = true;
                             // Extract the question
-                            var questionIndex = content.IndexOf("[BLOCKING_QUESTION]:") + "[BLOCKING_QUESTION]:".Length;
-                            var question = content.Substring(questionIndex).Trim();
+                            var questionIndex = outputText.IndexOf("[BLOCKING_QUESTION]:") + "[BLOCKING_QUESTION]:".Length;
+                            var question = outputText.Substring(questionIndex).Trim();
                             
                             task = await _taskRepository.GetByIdAsync(taskId);
                             if (task != null)
@@ -93,6 +102,18 @@ public class TaskProcessorService : ITaskProcessorService
                                 await _taskRepository.SaveAsync(task);
                             }
                             break; // Stop processing further
+                        }
+
+                        // Periodically update progress and output so frontend sees it live
+                        if (!isBlocked && tokenCount % 15 == 0)
+                        {
+                            task = await _taskRepository.GetByIdAsync(taskId);
+                            if (task != null && task.Status != "blocked_on_user")
+                            {
+                                task.Output = string.IsNullOrWhiteSpace(oldOutput) ? outputText : oldOutput + "\n" + outputText;
+                                task.Progress = Math.Min(90, 10 + (tokenCount / 4));
+                                await _taskRepository.SaveAsync(task);
+                            }
                         }
                     }
                 }
@@ -108,7 +129,7 @@ public class TaskProcessorService : ITaskProcessorService
                 task = await _taskRepository.GetByIdAsync(taskId);
                 if (task != null && task.Status != "blocked_on_user")
                 {
-                    task.Output = string.IsNullOrWhiteSpace(task.Output) ? outputText.Trim() : task.Output + "\n" + outputText.Trim();
+                    task.Output = string.IsNullOrWhiteSpace(oldOutput) ? outputText.Trim() : oldOutput + "\n" + outputText.Trim();
                     task.Progress = 100;
                     await _taskRepository.SaveAsync(task);
                 }

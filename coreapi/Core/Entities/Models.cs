@@ -86,7 +86,7 @@ public class TaskItem : IEntity
     public string Description { get; set; } = string.Empty;
     public string AssignedAgentId { get; set; } = string.Empty;
     public string SubsidiaryId { get; set; } = string.Empty;
-    public string Status { get; set; } = "pending"; // pending | in_progress | completed
+    public string Status { get; set; } = "pending"; // pending | in_progress | completed | blocked_on_user
     public int Progress { get; set; }               // 0 to 100
     public int Duration { get; set; }
     public List<string> Logs { get; set; } = new();
@@ -175,6 +175,30 @@ public class Employee : IEntity
     public string Avatar { get; set; } = "👤";
 }
 
+public class CatalogItem : IEntity
+{
+    public string Id { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public double Price { get; set; }
+    public string Sku { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public string SubsidiaryId { get; set; } = string.Empty;
+    public string SubsidiaryName { get; set; } = string.Empty;
+}
+
+public class RoleBlueprint : IEntity
+{
+    public string Id { get; set; } = string.Empty; // Store role name lowercase or dynamic guid
+    public string Name { get; set; } = string.Empty;
+    public List<string> CommonSkills { get; set; } = new();
+    public double Temperature { get; set; } = 0.5;
+    public int MaxTokens { get; set; } = 2048;
+    public string OutputFormat { get; set; } = "markdown"; // markdown | json | plain | code
+    public string MemoryType { get; set; } = "short_term"; // none | short_term | long_term
+    public List<AgentTool> Tools { get; set; } = new();
+}
+
 public class SimulationState
 {
     public List<Subsidiary> Subsidiaries { get; set; } = new();
@@ -184,4 +208,6 @@ public class SimulationState
     public List<Transaction> Transactions { get; set; } = new();
     public List<Lead> Leads { get; set; } = new();
     public List<Employee> Employees { get; set; } = new();
+    public List<CatalogItem> Catalog { get; set; } = new();
+    public List<RoleBlueprint> RoleBlueprints { get; set; } = new();
 }

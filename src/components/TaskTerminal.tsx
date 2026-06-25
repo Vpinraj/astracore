@@ -11,18 +11,34 @@ export const TaskTerminal: React.FC = () => {
   const handleClearLogs = () => {
     dispatch(clearLogsRequest());
   };
-  const terminalEndRef = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useState<'all' | 'agent' | 'success' | 'info'>('all');
-
-  useEffect(() => {
-    // Auto-scroll to bottom of logs on updates
-    terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
+  const [timeFilter, setTimeFilter] = useState<'30m' | '1h' | 'all' | 'custom'>('30m');
+  const [customMinutes, setCustomMinutes] = useState<number>(120);
 
   const filteredLogs = logs.filter((log) => {
-    if (filter === 'agent') return log.type === 'agent_action';
-    if (filter === 'success') return log.type === 'success';
-    if (filter === 'info') return log.type === 'info' || log.type === 'system';
+    // Type filtering
+    if (filter === 'agent' && log.type !== 'agent_action') return false;
+    if (filter === 'success' && log.type !== 'success') return false;
+    if (filter === 'info' && log.type !== 'info' && log.type !== 'system') return false;
+
+    // Time filtering
+    if (timeFilter !== 'all') {
+      const parts = log.id.split('-');
+      if (parts.length >= 2) {
+        const timestamp = parseInt(parts[1], 10);
+        if (!isNaN(timestamp)) {
+          const now = Date.now();
+          let maxAgeMs = 30 * 60 * 1000;
+          if (timeFilter === '1h') maxAgeMs = 60 * 60 * 1000;
+          if (timeFilter === 'custom') maxAgeMs = customMinutes * 60 * 1000;
+          
+          if (now - timestamp > maxAgeMs) {
+            return false;
+          }
+        }
+      }
+    }
+
     return true;
   });
 
@@ -63,6 +79,31 @@ export const TaskTerminal: React.FC = () => {
           <span className="text-[10px] md:text-[11px] font-bold text-zinc-300 tracking-wider truncate">AGENT_LOGS_STREAM.EXE</span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 mr-2">
+            <select 
+              value={timeFilter}
+              onChange={(e) => setTimeFilter(e.target.value as any)}
+              className="bg-zinc-900 border border-zinc-800 rounded px-2 py-0.5 text-[10px] text-zinc-300 focus:outline-none focus:border-purple-500/50"
+            >
+              <option value="30m">Last 30m</option>
+              <option value="1h">Last 1h</option>
+              <option value="all">All Time</option>
+              <option value="custom">Custom</option>
+            </select>
+            {timeFilter === 'custom' && (
+              <div className="flex items-center gap-1 text-[10px] text-zinc-400">
+                <input 
+                  type="number" 
+                  value={customMinutes}
+                  onChange={(e) => setCustomMinutes(parseInt(e.target.value) || 0)}
+                  className="w-12 bg-zinc-900 border border-zinc-800 rounded px-1 py-0.5 text-zinc-300 focus:outline-none focus:border-purple-500/50"
+                  min="1"
+                />
+                m
+              </div>
+            )}
+          </div>
+
           <Button
             variant={filter === 'all' ? 'purple' : 'ghost'}
             size="xs"
@@ -159,7 +200,6 @@ export const TaskTerminal: React.FC = () => {
             </div>
           ))
         )}
-        <div ref={terminalEndRef} />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using CoreApi.Core.Entities;
 using CoreApi.Core.Repositories;
 using CoreApi.Application.Services.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CoreApi.Application.Services.Implementations;
 
@@ -18,6 +19,9 @@ public class SimulationEngine : ISimulationEngine
     private readonly ITransactionService _transactionService;
     private readonly ILeadService _leadService;
     private readonly IEmployeeService _employeeService;
+    private readonly IRepository<CatalogItem> _catalogRepository;
+    private readonly IRepository<RoleBlueprint> _roleBlueprintRepository;
+    private readonly IServiceProvider _serviceProvider;
 
     private static readonly Dictionary<string, List<string>> AGENT_THOUGHTS = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -101,7 +105,10 @@ public class SimulationEngine : ISimulationEngine
         ILogService logService,
         ITransactionService transactionService,
         ILeadService leadService,
-        IEmployeeService employeeService)
+        IEmployeeService employeeService,
+        IRepository<CatalogItem> catalogRepository,
+        IRepository<RoleBlueprint> roleBlueprintRepository,
+        IServiceProvider serviceProvider)
     {
         _subsidiaryRepository = subsidiaryRepository;
         _agentRepository = agentRepository;
@@ -111,6 +118,9 @@ public class SimulationEngine : ISimulationEngine
         _transactionService = transactionService;
         _leadService = leadService;
         _employeeService = employeeService;
+        _catalogRepository = catalogRepository;
+        _roleBlueprintRepository = roleBlueprintRepository;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<SimulationState> GetStateAsync()
@@ -123,11 +133,13 @@ public class SimulationEngine : ISimulationEngine
         }
 
         var agents = (await _agentRepository.GetAllAsync()).ToList();
-        var tasks = (await _taskRepository.GetAllAsync()).ToList();
+        var tasks = (await _taskRepository.GetAllAsync()).Where(t => t.Status != "deleted").ToList();
         var logs = (await _logRepository.GetAllAsync()).OrderByDescending(l => l.Id).ToList();
         var transactions = (await _transactionService.GetAllAsync()).OrderByDescending(t => t.Timestamp).ToList();
         var leads = (await _leadService.GetAllAsync()).ToList();
         var employees = (await _employeeService.GetAllAsync()).ToList();
+        var catalog = (await _catalogRepository.GetAllAsync()).ToList();
+        var roles = (await _roleBlueprintRepository.GetAllAsync()).ToList();
 
         return new SimulationState
         {
@@ -137,7 +149,9 @@ public class SimulationEngine : ISimulationEngine
             Logs = logs,
             Transactions = transactions,
             Leads = leads,
-            Employees = employees
+            Employees = employees,
+            Catalog = catalog,
+            RoleBlueprints = roles
         };
     }
 
@@ -190,6 +204,30 @@ public class SimulationEngine : ISimulationEngine
         {
             await _logRepository.SaveAsync(log);
         }
+
+        // 5. Sync Catalog
+        var currentCatalog = (await _catalogRepository.GetAllAsync()).ToList();
+        foreach (var item in currentCatalog)
+        {
+            if (!state.Catalog.Any(c => c.Id == item.Id))
+                await _catalogRepository.DeleteAsync(item.Id);
+        }
+        foreach (var item in state.Catalog)
+        {
+            await _catalogRepository.SaveAsync(item);
+        }
+
+        // 6. Sync RoleBlueprints
+        var currentRoles = (await _roleBlueprintRepository.GetAllAsync()).ToList();
+        foreach (var role in currentRoles)
+        {
+            if (!state.RoleBlueprints.Any(r => r.Id == role.Id))
+                await _roleBlueprintRepository.DeleteAsync(role.Id);
+        }
+        foreach (var role in state.RoleBlueprints)
+        {
+            await _roleBlueprintRepository.SaveAsync(role);
+        }
     }
 
     public async Task<SimulationState> ResetStateAsync()
@@ -208,6 +246,12 @@ public class SimulationEngine : ISimulationEngine
         await _transactionService.ClearAllAsync();
         await _leadService.ClearAllAsync();
         await _employeeService.ClearAllAsync();
+
+        var catalogItems = await _catalogRepository.GetAllAsync();
+        foreach (var item in catalogItems) await _catalogRepository.DeleteAsync(item.Id);
+
+        var roles = await _roleBlueprintRepository.GetAllAsync();
+        foreach (var item in roles) await _roleBlueprintRepository.DeleteAsync(item.Id);
 
         return await SeedDefaultStateAsync();
     }
@@ -261,6 +305,86 @@ public class SimulationEngine : ISimulationEngine
             }
 
             await _taskRepository.SaveAsync(task);
+        }
+
+        // ── Ghost-task recovery: reset agents stuck on non-existent or completed tasks ──
+        // This handles the case where a task was deleted (or the server restarted)
+        // while an agent was still marked as "working" on it — preventing permanent dead-lock.
+        var liveTaskIds = new HashSet<string>(tasks.Select(t => t.Id));
+        var completedTaskIds = new HashSet<string>(tasks
+            .Where(t => t.Status.Equals("completed", StringComparison.OrdinalIgnoreCase) || t.Status.Equals("deleted", StringComparison.OrdinalIgnoreCase))
+            .Select(t => t.Id));
+
+        var ghostAgents = agents.Where(a =>
+            a.Status.Equals("working", StringComparison.OrdinalIgnoreCase) &&
+            (
+                string.IsNullOrWhiteSpace(a.ActiveTaskId) ||
+                !liveTaskIds.Contains(a.ActiveTaskId) ||
+                completedTaskIds.Contains(a.ActiveTaskId)
+            )).ToList();
+
+        foreach (var stuckAgent in ghostAgents)
+        {
+            var ghostTaskRef = stuckAgent.ActiveTaskId;
+            stuckAgent.Status = "idle";
+            stuckAgent.ActiveTaskId = null;
+            await _agentRepository.SaveAsync(stuckAgent);
+            await _logService.AddLogAsync(
+                $"[Recovery] Agent {stuckAgent.Name} unstuck — referenced task '{ghostTaskRef}' no longer active.",
+                "warning",
+                agentName: stuckAgent.Name
+            );
+        }
+
+        // ── Auto-pick: start any pending tasks whose assigned agent is now idle ──
+        // This recovers tasks that were never started due to a race condition or
+        // a transient error during the initial StartTask call.
+        var pendingWithAgent = tasks.Where(t =>
+            t.Status.Equals("pending", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(t.AssignedAgentId)).ToList();
+
+        // Refresh agent list so we pick up any status changes made above (including ghost recovery)
+        agents = (await _agentRepository.GetAllAsync()).ToList();
+
+        foreach (var pendingTask in pendingWithAgent)
+        {
+            var assignedAgent = agents.FirstOrDefault(a =>
+                a.Id == pendingTask.AssignedAgentId &&
+                a.Status.Equals("idle", StringComparison.OrdinalIgnoreCase));
+
+            if (assignedAgent == null) continue;
+
+            try
+            {
+                // Mark agent and task as in_progress directly to avoid re-running StartTaskAsync's
+                // full fund-deduction logic (already removed) and to keep the tick fast.
+                assignedAgent.Status = "working";
+                assignedAgent.ActiveTaskId = pendingTask.Id;
+                await _agentRepository.SaveAsync(assignedAgent);
+
+                pendingTask.Status = "in_progress";
+                pendingTask.Logs.Add("Agent picked up task from queue. Running processes...");
+                await _taskRepository.SaveAsync(pendingTask);
+
+                await _logService.AddLogAsync(
+                    $"Agent {assignedAgent.Name} ({assignedAgent.Role}) auto-picked task: \"{pendingTask.Title}\".",
+                    "agent_action",
+                    agentName: assignedAgent.Name
+                );
+
+                // Launch background LLM processing
+                var taskId = pendingTask.Id;
+                _ = System.Threading.Tasks.Task.Run(async () =>
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    var processor = scope.ServiceProvider.GetRequiredService<ITaskProcessorService>();
+                    await processor.ProcessTaskAsync(taskId);
+                });
+            }
+            catch (Exception ex)
+            {
+                await _logService.AddLogAsync($"Auto-pick error for task {pendingTask.Id}: {ex.Message}", "warning");
+            }
         }
 
         // Return refreshed state

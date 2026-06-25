@@ -6,6 +6,7 @@ using CoreApi.Core.Entities;
 using CoreApi.Core.Exceptions;
 using CoreApi.Core.Repositories;
 using CoreApi.Application.Services.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CoreApi.Application.Services.Implementations;
 
@@ -130,8 +131,13 @@ public class TaskService : ITaskService
         );
 
         // Launch background LLM execution
-        var processor = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ITaskProcessorService>(_serviceProvider);
-        _ = System.Threading.Tasks.Task.Run(() => processor.ProcessTaskAsync(task.Id));
+        var taskIdToProcess = task.Id;
+        _ = System.Threading.Tasks.Task.Run(async () =>
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var processor = scope.ServiceProvider.GetRequiredService<ITaskProcessorService>();
+            await processor.ProcessTaskAsync(taskIdToProcess);
+        });
     }
 
     public async Task AssignAgentAsync(string taskId, string agentId)
@@ -169,7 +175,12 @@ public class TaskService : ITaskService
     public Task SaveAsync(TaskItem task) => _taskRepository.SaveAsync(task);
     public async Task DeleteAsync(string id)
     {
-        await _taskRepository.DeleteAsync(id);
+        var task = await _taskRepository.GetByIdAsync(id);
+        if (task != null)
+        {
+            task.Status = "deleted";
+            await _taskRepository.SaveAsync(task);
+        }
     }
 
     public async Task ResumeTaskAsync(string taskId, string answer)
@@ -186,7 +197,12 @@ public class TaskService : ITaskService
         await _taskRepository.SaveAsync(task);
 
         // Resume background LLM execution
-        var processor = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ITaskProcessorService>(_serviceProvider);
-        _ = System.Threading.Tasks.Task.Run(() => processor.ProcessTaskAsync(task.Id));
+        var resumeTaskId = task.Id;
+        _ = System.Threading.Tasks.Task.Run(async () =>
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var processor = scope.ServiceProvider.GetRequiredService<ITaskProcessorService>();
+            await processor.ProcessTaskAsync(resumeTaskId);
+        });
     }
 }

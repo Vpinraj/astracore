@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { assignAgentRequest, startTaskRequest } from '../store/slices/taskSlice';
+import { assignAgentRequest, startTaskRequest, deleteTaskRequest } from '../store/slices/taskSlice';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { ProgressBar } from './ui/ProgressBar';
 import { CreateTaskModal } from './CreateModals';
 import { Modal } from './ui/Modal';
-import { ClipboardList, Plus, Play, Search, Filter } from 'lucide-react';
+import { ClipboardList, Plus, Play, Search, Filter, Trash2 } from 'lucide-react';
 import { Task } from '../types';
 
 export const TaskBoard: React.FC = () => {
@@ -24,6 +24,9 @@ export const TaskBoard: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterSub, setFilterSub] = useState('all');
 
+  const [filterAgent, setFilterAgent] = useState('all');
+  const [sortBy, setSortBy] = useState('latest');
+
   const getSubsidiary = (subId: string) => {
     return subsidiaries.find((s) => s.id === subId);
   };
@@ -38,13 +41,20 @@ export const TaskBoard: React.FC = () => {
                         task.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchStatus = filterStatus === 'all' || task.status === filterStatus;
     const matchSub = filterSub === 'all' || task.subsidiaryId === filterSub;
-    return matchSearch && matchStatus && matchSub;
+    const matchAgent = filterAgent === 'all' || 
+                       (filterAgent === 'unassigned' && !task.assignedAgentId) ||
+                       task.assignedAgentId === filterAgent;
+    return matchSearch && matchStatus && matchSub && matchAgent;
   });
 
-  // Top 20 tasks descending
+  // Sort tasks
   const sortedTasks = [...filteredTasks].sort((a, b) => {
-    return b.id.localeCompare(a.id);
-  }).slice(0, 20);
+    if (sortBy === 'latest') return b.id.localeCompare(a.id);
+    if (sortBy === 'title') return a.title.localeCompare(b.title);
+    if (sortBy === 'progress-high') return b.progress - a.progress;
+    if (sortBy === 'progress-low') return a.progress - b.progress;
+    return 0;
+  });
 
   const handleAssignAgent = (taskId: string, agentId: string) => {
     if (!agentId) return;
@@ -65,7 +75,7 @@ export const TaskBoard: React.FC = () => {
               <ClipboardList className="text-purple-400" size={20} />
               Operations Grid
             </h3>
-            <p className="text-xs text-zinc-500 font-mono mt-0.5">Top 20 filtered operations in descending order</p>
+            <p className="text-xs text-zinc-500 font-mono mt-0.5">Comprehensive operations ledger and workflow tracking</p>
           </div>
           <Button
             variant="purple"
@@ -78,6 +88,7 @@ export const TaskBoard: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-start gap-3">
+          {/* Search */}
           <div className="space-y-1 flex-1 min-w-[140px] max-w-xs">
             <span className="text-[10px] text-zinc-500 font-mono block">SEARCH TASKS</span>
             <div className="relative">
@@ -92,7 +103,8 @@ export const TaskBoard: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-1 flex-1 min-w-[140px] max-w-[200px]">
+          {/* Subsidiary */}
+          <div className="space-y-1 flex-1 min-w-[130px] max-w-[180px]">
             <span className="text-[10px] text-zinc-500 font-mono block">FILTER SUBSIDIARY</span>
             <select
               value={filterSub}
@@ -106,7 +118,24 @@ export const TaskBoard: React.FC = () => {
             </select>
           </div>
 
-          <div className="space-y-1 flex-1 min-w-[120px] max-w-[160px]">
+          {/* Agent */}
+          <div className="space-y-1 flex-1 min-w-[130px] max-w-[180px]">
+            <span className="text-[10px] text-zinc-500 font-mono block">ASSIGNED AGENT</span>
+            <select
+              value={filterAgent}
+              onChange={(e) => setFilterAgent(e.target.value)}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-purple-500/50 cursor-pointer"
+            >
+              <option value="all">All Agents</option>
+              <option value="unassigned">Unassigned</option>
+              {agents.map((a) => (
+                <option key={a.id} value={a.id}>{a.name} ({a.role})</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status */}
+          <div className="space-y-1 flex-1 min-w-[120px] max-w-[150px]">
             <span className="text-[10px] text-zinc-500 font-mono block">FILTER STATUS</span>
             <select
               value={filterStatus}
@@ -117,53 +146,122 @@ export const TaskBoard: React.FC = () => {
               <option value="pending">Pending</option>
               <option value="in_progress">In Progress</option>
               <option value="completed">Completed</option>
+              <option value="blocked_on_user">Blocked on User</option>
+            </select>
+          </div>
+
+          {/* Sort */}
+          <div className="space-y-1 flex-1 min-w-[120px] max-w-[150px]">
+            <span className="text-[10px] text-zinc-500 font-mono block">SORT BY</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-purple-500/50 cursor-pointer"
+            >
+              <option value="latest">Latest Created</option>
+              <option value="title">Title (A-Z)</option>
+              <option value="progress-high">Progress (Highest)</option>
+              <option value="progress-low">Progress (Lowest)</option>
             </select>
           </div>
         </div>
       </div>
 
-      <div className="space-y-3 max-h-[75vh] overflow-y-auto pr-2 custom-scrollbar">
+      <div className="rounded-xl border border-zinc-900 bg-zinc-950/30 overflow-hidden">
         {sortedTasks.length === 0 ? (
-          <div className="p-8 text-center text-xs text-zinc-600 bg-zinc-950/15 border border-dashed border-zinc-900 rounded-xl">
+          <div className="p-8 text-center text-xs text-zinc-600 bg-zinc-950/15">
             <Filter className="mx-auto mb-2 text-zinc-700" size={32} />
             No tasks found matching your filters.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sortedTasks.map((task) => {
-              const sub = getSubsidiary(task.subsidiaryId);
-              const assignedAgent = getAgent(task.assignedAgentId);
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-zinc-950/60 border-b border-zinc-900 text-zinc-500 font-mono text-[10px] uppercase tracking-wider">
+                  <th className="p-4 pl-5">Task ID</th>
+                  <th className="p-4">Operation Title / Description</th>
+                  <th className="p-4">Subsidiary</th>
+                  <th className="p-4">Assigned Agent</th>
+                  <th className="p-4">Progress</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4 pr-5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-900/60 text-zinc-300">
+                {sortedTasks.map((task) => {
+                  const sub = getSubsidiary(task.subsidiaryId);
+                  const assignedAgent = getAgent(task.assignedAgentId);
 
-              return (
-                <Card key={task.id} className="p-3 bg-zinc-950/40 border-zinc-900 hover:border-zinc-800/80 transition-all duration-200 flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start mb-2">
-                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono leading-none tracking-tight font-semibold bg-zinc-900 border border-zinc-800 ${sub?.textColor || 'text-zinc-400'} shrink-0`}>
-                        {sub?.name || 'Unknown'}
-                      </span>
-                      <Badge variant={task.status as any} className="text-[9px] py-0">{task.status.replace('_', ' ')}</Badge>
-                    </div>
-
-                    <h5 className="text-xs font-bold text-zinc-200 mt-1 truncate">{task.title}</h5>
-                    <p className="text-[10px] text-zinc-500 mt-1 leading-normal line-clamp-2">{task.description}</p>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-zinc-900/60 flex justify-between items-center">
-                    <span className="text-[9px] text-zinc-500 font-mono">
-                      Agent: {assignedAgent ? assignedAgent.name : 'Unassigned'}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      onClick={() => setSelectedTask(task)}
-                      className="text-[9px] py-1 h-6 bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800 hover:text-zinc-200"
-                    >
-                      View Details
-                    </Button>
-                  </div>
-                </Card>
-              );
-            })}
+                  return (
+                    <tr key={task.id} className="hover:bg-zinc-900/20 transition-all duration-200">
+                      <td className="p-4 pl-5 font-mono text-[10px] text-zinc-500">
+                        {task.id.replace('task-', '')}
+                      </td>
+                      <td className="p-4 max-w-[280px]">
+                        <p className="font-bold text-zinc-200 truncate">{task.title}</p>
+                        <p className="text-[10px] text-zinc-500 line-clamp-1 mt-0.5">{task.description}</p>
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-semibold bg-zinc-900 border border-zinc-800 ${sub?.textColor || 'text-zinc-400'}`}>
+                          {sub?.name || 'HQ'}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        {assignedAgent ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-base">{assignedAgent.avatar}</span>
+                            <div>
+                              <p className="font-medium text-zinc-300 leading-tight">{assignedAgent.name}</p>
+                              <p className="text-[9px] text-zinc-500 font-mono leading-none">{assignedAgent.role}</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] italic text-zinc-600 font-mono">Unassigned</span>
+                        )}
+                      </td>
+                      <td className="p-4 min-w-[120px]">
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[9px] font-mono text-zinc-500 leading-none">
+                            <span>Completing</span>
+                            <span>{task.progress}%</span>
+                          </div>
+                          <ProgressBar value={task.progress} color="indigo" />
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <Badge variant={task.status as any} className="text-[9px] px-2 py-0.5 uppercase tracking-wide font-bold">
+                          {task.status.replace('_', ' ')}
+                        </Badge>
+                      </td>
+                      <td className="p-4 pr-5 text-right flex items-center justify-end gap-1">
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          onClick={() => setSelectedTask(task)}
+                          className="bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800 text-[10px] h-7 px-3 font-medium"
+                        >
+                          Details
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm('Are you sure you want to delete this task?')) {
+                              dispatch(deleteTaskRequest({ taskId: task.id }));
+                            }
+                          }}
+                          className="text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 h-7 w-7 p-0 rounded-md"
+                          title="Delete Task"
+                        >
+                          <Trash2 size={13} />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

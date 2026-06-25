@@ -8,7 +8,7 @@ import {
   tickRequest, tickSuccess, tickFailure,
 } from '../slices/coreSlice';
 import { setSubsidiaries } from '../slices/subsidiarySlice';
-import { setAgents } from '../slices/agentSlice';
+import { setAgents, setRoles } from '../slices/agentSlice';
 import { setTasks } from '../slices/taskSlice';
 import { setTransactions } from '../slices/financeSlice';
 import { setLeads, setEmployees } from '../slices/crmSlice';
@@ -23,6 +23,7 @@ function* fetchStateSaga() {
     yield put(setTransactions(data.transactions || []));
     yield put(setLeads(data.leads || []));
     yield put(setEmployees(data.employees || []));
+    yield put(setRoles(data.roleBlueprints || []));
     yield put(fetchStateSuccess(data));
   } catch (error: any) {
     yield put(fetchStateFailure(error.message));
@@ -38,6 +39,7 @@ function* tickSaga() {
     yield put(setTransactions(data.transactions || []));
     yield put(setLeads(data.leads || []));
     yield put(setEmployees(data.employees || []));
+    yield put(setRoles(data.roleBlueprints || []));
     yield put(tickSuccess(data));
   } catch (error: any) {
     yield put(tickFailure(error.message));

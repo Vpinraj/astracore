@@ -19,6 +19,8 @@ import { AgentChatWindow } from './components/AgentChatWindow';
 import { LeadCRM } from './components/LeadCRM';
 import { EmployeeDirectory } from './components/EmployeeDirectory';
 import { OrgTree } from './components/OrgTree';
+import { CatalogBoard } from './components/CatalogBoard';
+import { RoleRegistry } from './components/RoleRegistry';
 import type { Subsidiary } from './types';
 
 function DashboardLayout() {
@@ -26,6 +28,7 @@ function DashboardLayout() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [selectedSubsidiary, setSelectedSubsidiary] = useState<Subsidiary | null>(null);
   const [teamSubTab, setTeamSubTab] = useState<'directory' | 'org'>('directory');
+  const [agentsSubTab, setAgentsSubTab] = useState<'agents' | 'blueprints'>('agents');
 
   useEffect(() => {
     // Initial fetch to populate UI
@@ -61,9 +64,38 @@ function DashboardLayout() {
         }
         return <SubsidiaryGrid onViewDetails={setSelectedSubsidiary} />;
       case 'agents':
-        return <AgentBoard />;
+        return (
+          <div className="space-y-5">
+            {/* Sub-tab toggle */}
+            <div className="flex items-center gap-1 bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-1 w-fit">
+              <button
+                onClick={() => setAgentsSubTab('agents')}
+                className={`text-xs font-semibold px-4 py-2 rounded-lg transition-all ${
+                  agentsSubTab === 'agents'
+                    ? 'bg-purple-600/30 text-purple-400 border border-purple-600/40'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                👥 Agent Squad
+              </button>
+              <button
+                onClick={() => setAgentsSubTab('blueprints')}
+                className={`text-xs font-semibold px-4 py-2 rounded-lg transition-all ${
+                  agentsSubTab === 'blueprints'
+                    ? 'bg-indigo-600/30 text-indigo-400 border border-indigo-600/40'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                📜 Role Blueprints
+              </button>
+            </div>
+            {agentsSubTab === 'agents' ? <AgentBoard /> : <RoleRegistry />}
+          </div>
+        );
       case 'tasks':
         return <TaskBoard />;
+      case 'catalog':
+        return <CatalogBoard />;
       case 'questions':
         return <QuestionBoard />;
       case 'terminal':

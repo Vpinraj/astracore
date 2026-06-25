@@ -24,6 +24,8 @@ const taskSlice = createSlice({
     startTaskSuccess: (state) => {},
     answerTaskRequest: (state, action: PayloadAction<{ taskId: string; answer: string }>) => {},
     answerTaskSuccess: (state) => {},
+    deleteTaskRequest: (state, action: PayloadAction<{ taskId: string }>) => {},
+    deleteTaskSuccess: (state) => {},
   },
 });
 
@@ -37,6 +39,8 @@ export const {
   startTaskSuccess,
   answerTaskRequest,
   answerTaskSuccess,
+  deleteTaskRequest,
+  deleteTaskSuccess,
 } = taskSlice.actions;
 
 export default taskSlice.reducer;

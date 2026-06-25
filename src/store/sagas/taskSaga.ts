@@ -3,7 +3,8 @@ import { api } from '../../api';
 import {
   createTaskRequest, createTaskSuccess,
   assignAgentRequest, assignAgentSuccess,
-  startTaskRequest, startTaskSuccess
+  startTaskRequest, startTaskSuccess,
+  deleteTaskRequest, deleteTaskSuccess
 } from '../slices/taskSlice';
 import { fetchStateRequest } from '../slices/coreSlice';
 import { PayloadAction } from '@reduxjs/toolkit';
@@ -48,9 +49,20 @@ function* answerTaskSaga(action: PayloadAction<{ taskId: string; answer: string 
   }
 }
 
+function* deleteTaskSaga(action: PayloadAction<{ taskId: string }>) {
+  try {
+    yield call(api.deleteTask, action.payload.taskId);
+    yield put(deleteTaskSuccess());
+    yield put(fetchStateRequest());
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 export default function* taskSaga() {
   yield takeLatest(createTaskRequest.type, createTaskSaga);
   yield takeLatest(assignAgentRequest.type, assignAgentSaga);
   yield takeLatest(startTaskRequest.type, startTaskSaga);
   yield takeLatest('task/answerTaskRequest', answerTaskSaga);
+  yield takeLatest(deleteTaskRequest.type, deleteTaskSaga);
 }

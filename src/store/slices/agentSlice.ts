@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Agent } from '../../types';
+import { Agent, RoleBlueprint } from '../../types';
 
 export interface CreateAgentPayload {
   name: string;
@@ -15,6 +15,7 @@ interface AgentState {
   activeChatAgentId: string | null;
   openChatIds: string[];
   isChatFullScreen: boolean;
+  roles: RoleBlueprint[];
 }
 
 const initialState: AgentState = {
@@ -22,6 +23,7 @@ const initialState: AgentState = {
   activeChatAgentId: null,
   openChatIds: [],
   isChatFullScreen: false,
+  roles: [],
 };
 
 const agentSlice = createSlice({
@@ -30,6 +32,9 @@ const agentSlice = createSlice({
   reducers: {
     setAgents: (state, action: PayloadAction<Agent[]>) => {
       state.items = action.payload;
+    },
+    setRoles: (state, action: PayloadAction<RoleBlueprint[]>) => {
+      state.roles = action.payload;
     },
     createAgentRequest: (state, action: PayloadAction<any>) => {},
     createAgentSuccess: (state, action: PayloadAction<Agent>) => {},
@@ -63,5 +68,5 @@ const agentSlice = createSlice({
   },
 });
 
-export const { setAgents, createAgentRequest, createAgentSuccess, openAgentChat, closeAgentChatTab, closeAgentChat, toggleAgentChatFullScreen } = agentSlice.actions;
+export const { setAgents, setRoles, createAgentRequest, createAgentSuccess, openAgentChat, closeAgentChatTab, closeAgentChat, toggleAgentChatFullScreen } = agentSlice.actions;
 export default agentSlice.reducer;

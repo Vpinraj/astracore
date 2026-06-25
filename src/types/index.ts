@@ -326,3 +326,31 @@ export interface Employee {
   reportsToName: string;
   avatar: string;
 }
+
+// ─────────────────────────────────────────────
+// PRODUCT CATALOG ITEM
+// ─────────────────────────────────────────────
+export interface CatalogItem {
+  id: string;
+  productName: string;
+  description: string;
+  price: number;
+  sku: string;
+  category: string;
+  subsidiaryId: string;
+  subsidiaryName: string;
+}
+
+// ─────────────────────────────────────────────
+// DYNAMIC ROLE BLUEPRINT
+// ─────────────────────────────────────────────
+export interface RoleBlueprint {
+  id: string;
+  name: string;
+  commonSkills: string[];
+  temperature: number;
+  maxTokens: number;
+  outputFormat: AgentOutputFormat;
+  memoryType: AgentMemoryType;
+  tools: AgentTool[];
+}

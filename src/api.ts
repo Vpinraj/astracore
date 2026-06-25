@@ -61,6 +61,11 @@ export const api = {
     if (!response.ok) throw new Error('Failed to start task');
     return response.json();
   },
+  deleteTask: async (taskId: string) => {
+    const response = await fetch(`${API_BASE_URL}/simulation/task/${taskId}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Failed to delete task');
+    return response.json();
+  },
   answerTaskQuestion: async (taskId: string, answer: string) => {
     const response = await fetch(`${API_BASE_URL}/simulation/task/${taskId}/answer`, {
       method: 'POST',
@@ -146,6 +151,52 @@ export const api = {
       body: JSON.stringify({ agentId, message, history }),
     });
     if (!response.ok) throw new Error('Failed to chat with agent');
+    return response.json();
+  },
+  // Dynamic Roles
+  fetchRoles: async () => {
+    const response = await fetch(`${API_BASE_URL}/simulation/roles`);
+    if (!response.ok) throw new Error('Failed to fetch role blueprints');
+    return response.json();
+  },
+  createRole: async (roleData: any) => {
+    const response = await fetch(`${API_BASE_URL}/simulation/roles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(roleData),
+    });
+    if (!response.ok) throw new Error('Failed to save role blueprint');
+    return response.json();
+  },
+  // Catalog Management
+  fetchCatalog: async () => {
+    const response = await fetch(`${API_BASE_URL}/catalog`);
+    if (!response.ok) throw new Error('Failed to fetch product catalog');
+    return response.json();
+  },
+  addItem: async (itemData: any) => {
+    const response = await fetch(`${API_BASE_URL}/catalog`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(itemData),
+    });
+    if (!response.ok) throw new Error('Failed to create catalog item');
+    return response.json();
+  },
+  clearCatalog: async () => {
+    const response = await fetch(`${API_BASE_URL}/catalog/clear`, { method: 'POST' });
+    if (!response.ok) throw new Error('Failed to clear catalog');
+    return response.json();
+  },
+  uploadCatalog: async (formData: FormData) => {
+    const response = await fetch(`${API_BASE_URL}/catalog/upload`, {
+      method: 'POST',
+      body: formData, // Fetch sets multipart boundary automatically
+    });
+    if (!response.ok) {
+      const errMsg = await response.text();
+      throw new Error(errMsg || 'Failed to upload and parse catalog file');
+    }
     return response.json();
   },
 };

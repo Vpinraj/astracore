@@ -235,8 +235,11 @@ const AI_MODELS = [
 export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({ isOpen, onClose, defaultSubsidiaryId }) => {
   const dispatch = useAppDispatch();
   const subsidiaries = useAppSelector(state => state.subsidiaries.items);
+  const rolesList = useAppSelector(state => state.agents.roles);
+  const blueprints = rolesList.length > 0 ? rolesList : AGENT_ROLE_BLUEPRINTS;
+
   const [name, setName] = useState('');
-  const [role, setRole] = useState<AgentRole>('Developer');
+  const [role, setRole] = useState<string>('Developer');
   const [subsidiaryId, setSubsidiaryId] = useState(defaultSubsidiaryId || subsidiaries[0]?.id || '');
   const [instructions, setInstructions] = useState('');
   const [modelId, setModelId] = useState('gemma4:latest');
@@ -249,7 +252,7 @@ export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({ isOpen, onCl
 
   const [error, setError] = useState('');
 
-  const selectedBlueprint = AGENT_ROLE_BLUEPRINTS.find(r => r.name === role);
+  const selectedBlueprint = blueprints.find(r => r.name === role);
 
   const defaultInstructionPlaceholder = selectedBlueprint
     ? `e.g. You are ${name || '[Agent Name]'}, an AI ${role}. Focus on ${selectedBlueprint.commonSkills.slice(0, 2).join(' and ')}. Always prioritize accuracy and transparency in your outputs.`
@@ -362,25 +365,20 @@ export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({ isOpen, onCl
 
         </div>
 
-        {/* Role Blueprint Selector — pill grid */}
-        <div className="space-y-2">
+        {/* Role Blueprint Selector — select dropdown for 60+ dynamic roles */}
+        <div className="space-y-1.5">
           <label className="text-zinc-400 font-medium">Role Blueprint</label>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-            {AGENT_ROLE_BLUEPRINTS.map((blueprint) => (
-              <button
-                key={blueprint.name}
-                type="button"
-                onClick={() => setRole(blueprint.name as AgentRole)}
-                className={`px-2 py-1.5 rounded-lg border text-center transition-all text-[10px] font-medium ${
-                  role === blueprint.name
-                    ? 'border-purple-500/60 bg-purple-950/30 text-purple-300'
-                    : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300'
-                }`}
-              >
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-purple-500/50"
+          >
+            {blueprints.map((blueprint) => (
+              <option key={blueprint.name} value={blueprint.name}>
                 {blueprint.name}
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
         </div>
 
         {/* Dynamic Custom Configuration Panel */}

@@ -61,6 +61,17 @@ public class TaskController : ControllerBase
         await _taskService.ResumeTaskAsync(taskId, req.Answer);
         return Ok(new { success = true });
     }
+
+    [HttpDelete("task/{taskId}")]
+    public async Task<IActionResult> DeleteTask(string taskId)
+    {
+        if (string.IsNullOrWhiteSpace(taskId))
+        {
+            return BadRequest("Invalid task reference");
+        }
+        await _taskService.DeleteAsync(taskId);
+        return Ok(new { success = true });
+    }
 }
 
 public class AnswerTaskRequest

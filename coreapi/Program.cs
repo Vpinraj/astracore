@@ -67,6 +67,10 @@ builder.Services.AddSingleton<IRepository<Lead>>(sp =>
     new DocumentRepository<Lead>(sp.GetRequiredService<IDocumentStore>(), "leads"));
 builder.Services.AddSingleton<IRepository<Employee>>(sp => 
     new DocumentRepository<Employee>(sp.GetRequiredService<IDocumentStore>(), "employees"));
+builder.Services.AddSingleton<IRepository<CatalogItem>>(sp => 
+    new DocumentRepository<CatalogItem>(sp.GetRequiredService<IDocumentStore>(), "catalog_items"));
+builder.Services.AddSingleton<IRepository<RoleBlueprint>>(sp => 
+    new DocumentRepository<RoleBlueprint>(sp.GetRequiredService<IDocumentStore>(), "role_blueprints"));
 
 // Register application services
 builder.Services.AddSingleton<ILogService, LogService>();
