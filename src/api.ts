@@ -208,4 +208,81 @@ export const api = {
     }
     return response.json();
   },
+
+  // ── Heartbeat ──────────────────────────────────────────────────────────────
+
+  /** Configure (or disable) an agent's autonomous heartbeat. */
+  configureHeartbeat: async (
+    agentId: string,
+    enabled: boolean,
+    intervalMinutes: number,
+    instruction: string,
+  ) => {
+    const response = await fetch(`${API_BASE_URL}/agents/${agentId}/heartbeat`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled, intervalMinutes, instruction }),
+    });
+    if (!response.ok) throw new Error('Failed to configure heartbeat');
+    return response.json();
+  },
+
+  /** Retrieve the most recent heartbeat execution logs for an agent. */
+  fetchHeartbeatLogs: async (agentId: string, limit = 20) => {
+    const response = await fetch(
+      `${API_BASE_URL}/agents/${agentId}/heartbeat-logs?limit=${limit}`,
+    );
+    if (!response.ok) throw new Error('Failed to fetch heartbeat logs');
+    return response.json();
+  },
+
+  /** Clear all heartbeat logs for an agent. */
+  clearHeartbeatLogs: async (agentId: string) => {
+    const response = await fetch(`${API_BASE_URL}/agents/${agentId}/heartbeat-logs`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to clear heartbeat logs');
+    return response.json();
+  },
+
+  /** Immediately fire a heartbeat pulse (for manual trigger / testing). */
+  triggerHeartbeat: async (agentId: string) => {
+    const response = await fetch(`${API_BASE_URL}/agents/${agentId}/heartbeat/trigger`, {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error('Failed to trigger heartbeat');
+    return response.json();
+  },
+
+  // ── Agent Edit ──────────────────────────────────────────────────────────────
+
+  /** PATCH any subset of mutable agent fields. Returns the updated agent. */
+  updateAgent: async (agentId: string, data: Record<string, any>) => {
+    const response = await fetch(`${API_BASE_URL}/agents/${agentId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to update agent');
+    return response.json();
+  },
+
+  /** Backfill heartbeat instructions for all agents that have none set. */
+  seedHeartbeatInstructions: async () => {
+    const response = await fetch(`${API_BASE_URL}/agents/seed-heartbeat-instructions`, {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error('Failed to seed heartbeat instructions');
+    return response.json();
+  },
+
+  /** Fetch unified execution logs (Chats, Tasks, Heartbeats) */
+  fetchExecutionLogs: async (limit: number = 1000, hours?: number) => {
+    let url = `${API_BASE_URL}/execution-logs?limit=${limit}`;
+    if (hours) url += `&hours=${hours}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch execution logs');
+    return response.json();
+  },
 };
+

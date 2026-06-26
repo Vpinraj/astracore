@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LayoutDashboard, Building2, Users, Terminal, Cpu, Menu, X, ClipboardList, Target, GitBranch, HelpCircle, Package, FileText } from 'lucide-react';
 
-export type TabType = 'overview' | 'subsidiaries' | 'transactions' | 'agents' | 'tasks' | 'catalog' | 'questions' | 'terminal' | 'leads' | 'team';
+export type TabType = 'overview' | 'subsidiaries' | 'transactions' | 'agents' | 'tasks' | 'catalog' | 'questions' | 'terminal' | 'execution_logs' | 'leads' | 'team';
 
 interface SidebarProps {
   activeTab: TabType;
@@ -21,7 +21,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
     { id: 'questions' as TabType, label: 'Agent Doubts', icon: HelpCircle },
     { id: 'leads' as TabType, label: 'Leads CRM', icon: Target },
     { id: 'team' as TabType, label: 'Team & Org', icon: GitBranch },
-    { id: 'terminal' as TabType, label: 'Execution Logs', icon: Terminal },
+    { id: 'terminal' as TabType, label: 'System Logs', icon: Terminal },
+    { id: 'execution_logs' as TabType, label: 'Execution Logs', icon: FileText },
   ];
 
   const handleTabSelect = (tab: TabType) => {

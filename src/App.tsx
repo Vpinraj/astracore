@@ -22,6 +22,7 @@ import { OrgTree } from './components/OrgTree';
 import { CatalogBoard } from './components/CatalogBoard';
 import { RoleRegistry } from './components/RoleRegistry';
 import { BalanceSheet } from './components/BalanceSheet';
+import { ExecutionLogsPage } from './pages/ExecutionLogsPage';
 import type { Subsidiary } from './types';
 
 function DashboardLayout() {
@@ -103,6 +104,8 @@ function DashboardLayout() {
         return <QuestionBoard />;
       case 'terminal':
         return <TaskTerminal />;
+      case 'execution_logs':
+        return <ExecutionLogsPage />;
       case 'leads':
         return <LeadCRM />;
       case 'team':

@@ -76,6 +76,39 @@ public class Agent : IEntity
     public int Level { get; set; } = 1;
     public double Efficiency { get; set; } = 1.0;
     public List<ConversationMessage> ConversationHistory { get; set; } = new();
+
+    // ── Autonomous Heartbeat ────────────────────────────────────────────────
+    /// <summary>Whether the agent's autonomous heartbeat pulse is active.</summary>
+    public bool HeartbeatEnabled { get; set; } = false;
+
+    /// <summary>How often the heartbeat fires, in minutes.</summary>
+    public int HeartbeatIntervalMinutes { get; set; } = 60;
+
+    /// <summary>The instruction given to the agent on each heartbeat wake-up.</summary>
+    public string HeartbeatInstruction { get; set; } = string.Empty;
+
+    /// <summary>UTC ISO-8601 timestamp for when the next heartbeat should fire. Null = not yet scheduled.</summary>
+    public string? NextHeartbeatAt { get; set; }
+
+    /// <summary>UTC ISO-8601 timestamp of the most recent heartbeat execution.</summary>
+    public string? LastHeartbeatAt { get; set; }
+}
+
+// ─── Heartbeat Execution Log ──────────────────────────────────────────────────
+/// <summary>
+/// Persisted record of a single heartbeat pulse execution for an agent.
+/// </summary>
+[BsonIgnoreExtraElements]
+public class HeartbeatLog : IEntity
+{
+    public string Id { get; set; } = string.Empty;
+    public string AgentId { get; set; } = string.Empty;
+    public string AgentName { get; set; } = string.Empty;
+    public string Timestamp { get; set; } = string.Empty;  // UTC ISO-8601
+    public string Instruction { get; set; } = string.Empty;
+    public string Response { get; set; } = string.Empty;
+    public bool Success { get; set; } = true;
+    public string? ErrorMessage { get; set; }
 }
 
 [BsonIgnoreExtraElements]
@@ -199,6 +232,9 @@ public class RoleBlueprint : IEntity
     public string OutputFormat { get; set; } = "markdown"; // markdown | json | plain | code
     public string MemoryType { get; set; } = "short_term"; // none | short_term | long_term
     public List<AgentTool> Tools { get; set; } = new();
+
+    /// <summary>Default wake-up instruction used when an agent of this role has no custom heartbeat instruction set.</summary>
+    public string HeartbeatInstruction { get; set; } = string.Empty;
 }
 
 public class SimulationState

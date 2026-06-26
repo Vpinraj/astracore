@@ -5,7 +5,7 @@ import { Badge } from './ui/Badge';
 import { CreateAgentModal } from './CreateModals';
 import { Users, UserPlus, MessageSquare, Search, Building2 } from 'lucide-react';
 
-import { openAgentChat } from '../store/slices/agentSlice';
+import { openAgentChat, updateAgent } from '../store/slices/agentSlice';
 import { Agent } from '../types';
 import { AgentDetailsModal } from './AgentDetailsModal';
 
@@ -190,6 +190,11 @@ export const AgentBoard: React.FC = () => {
         agent={selectedAgent}
         isOpen={!!selectedAgent}
         onClose={() => setSelectedAgent(null)}
+        onAgentUpdate={(updated) => {
+          dispatch(updateAgent(updated));
+          // Also keep the locally-selected agent in sync
+          setSelectedAgent(updated);
+        }}
       />
     </div>
   );

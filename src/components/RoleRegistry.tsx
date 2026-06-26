@@ -14,6 +14,7 @@ export const RoleRegistry: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<RoleBlueprint | null>(null);
 
   // Form States
   const [newRoleName, setNewRoleName] = useState('');
@@ -22,6 +23,7 @@ export const RoleRegistry: React.FC = () => {
   const [newRoleTokens, setNewRoleTokens] = useState(2048);
   const [newRoleFormat, setNewRoleFormat] = useState<AgentOutputFormat>('markdown');
   const [newRoleMemory, setNewRoleMemory] = useState<AgentMemoryType>('short_term');
+  const [newRoleHeartbeat, setNewRoleHeartbeat] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -40,6 +42,30 @@ export const RoleRegistry: React.FC = () => {
     setSelectedTools(prev =>
       prev.map(t => (t.name === toolName ? { ...t, enabled: !t.enabled } : t))
     );
+  };
+
+  const handleEditRole = (role: RoleBlueprint) => {
+    setEditingRole(role);
+    setNewRoleName(role.name);
+    setNewRoleSkills(role.commonSkills.join(', '));
+    setNewRoleTemp(role.temperature);
+    setNewRoleTokens(role.maxTokens);
+    setNewRoleFormat(role.outputFormat);
+    setNewRoleMemory(role.memoryType);
+    setNewRoleHeartbeat(role.heartbeatInstruction || '');
+    
+    // Merge existing tools with standard list
+    setSelectedTools([
+      { name: 'web_search', description: 'Search the web for market intelligence', enabled: role.tools?.find(t => t.name === 'web_search')?.enabled ?? false },
+      { name: 'code_exec', description: 'Execute code in a sandboxed runtime', enabled: role.tools?.find(t => t.name === 'code_exec')?.enabled ?? false },
+      { name: 'read_codebase', description: 'Read source files from the repository', enabled: role.tools?.find(t => t.name === 'read_codebase')?.enabled ?? false },
+      { name: 'write_file', description: 'Write or patch source files', enabled: role.tools?.find(t => t.name === 'write_file')?.enabled ?? false },
+      { name: 'generate_copy', description: 'Generate marketing/ad copy text', enabled: role.tools?.find(t => t.name === 'generate_copy')?.enabled ?? false },
+      { name: 'read_kb', description: 'Read knowledge base articles', enabled: role.tools?.find(t => t.name === 'read_kb')?.enabled ?? false },
+      { name: 'send_email', description: 'Send campaign or newsletter emails', enabled: role.tools?.find(t => t.name === 'send_email')?.enabled ?? false }
+    ]);
+    
+    setIsCreateModalOpen(true);
   };
 
   const filteredRoles = roles.filter(role =>
@@ -70,12 +96,14 @@ export const RoleRegistry: React.FC = () => {
     }
 
     const roleBlueprint: Partial<RoleBlueprint> = {
+      id: editingRole ? editingRole.id : undefined,
       name: newRoleName.trim(),
       commonSkills: skillsArray,
       temperature: newRoleTemp,
       maxTokens: newRoleTokens,
       outputFormat: newRoleFormat,
       memoryType: newRoleMemory,
+      heartbeatInstruction: newRoleHeartbeat.trim() || undefined,
       tools: selectedTools
     };
 
@@ -91,6 +119,7 @@ export const RoleRegistry: React.FC = () => {
       setNewRoleTokens(2048);
       setNewRoleFormat('markdown');
       setNewRoleMemory('short_term');
+      setNewRoleHeartbeat('');
       setSelectedTools([
         { name: 'web_search', description: 'Search the web for market intelligence', enabled: true },
         { name: 'code_exec', description: 'Execute code in a sandboxed runtime', enabled: false },
@@ -101,12 +130,34 @@ export const RoleRegistry: React.FC = () => {
         { name: 'send_email', description: 'Send campaign or newsletter emails', enabled: false }
       ]);
       
+      setEditingRole(null);
       setIsCreateModalOpen(false);
     } catch (err: any) {
-      setError(err.message || 'Failed to save custom role blueprint');
+      setError(err.message || 'Failed to save role blueprint');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const openCreateModal = () => {
+    setEditingRole(null);
+    setNewRoleName('');
+    setNewRoleSkills('');
+    setNewRoleTemp(0.5);
+    setNewRoleTokens(2048);
+    setNewRoleFormat('markdown');
+    setNewRoleMemory('short_term');
+    setNewRoleHeartbeat('');
+    setSelectedTools([
+      { name: 'web_search', description: 'Search the web for market intelligence', enabled: true },
+      { name: 'code_exec', description: 'Execute code in a sandboxed runtime', enabled: false },
+      { name: 'read_codebase', description: 'Read source files from the repository', enabled: false },
+      { name: 'write_file', description: 'Write or patch source files', enabled: false },
+      { name: 'generate_copy', description: 'Generate marketing/ad copy text', enabled: false },
+      { name: 'read_kb', description: 'Read knowledge base articles', enabled: false },
+      { name: 'send_email', description: 'Send campaign or newsletter emails', enabled: false }
+    ]);
+    setIsCreateModalOpen(true);
   };
 
   return (
@@ -126,7 +177,7 @@ export const RoleRegistry: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={openCreateModal}
             className="flex items-center gap-1.5 border-zinc-700/60 font-semibold text-zinc-200"
           >
             <Plus size={16} /> Create Custom Role
@@ -164,7 +215,16 @@ export const RoleRegistry: React.FC = () => {
                   <h4 className="text-sm font-bold text-zinc-100">{role.name}</h4>
                   <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-tight">Blueprint Config</span>
                 </div>
-                <Badge variant="role">{role.outputFormat}</Badge>
+                <div className="flex gap-2 items-center">
+                  <button
+                    onClick={() => handleEditRole(role)}
+                    className="p-1 rounded bg-zinc-800 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-700 transition"
+                    title="Edit Role Blueprint"
+                  >
+                    <Settings size={14} />
+                  </button>
+                  <Badge variant="role">{role.outputFormat}</Badge>
+                </div>
               </div>
 
               {/* Skills */}
@@ -225,8 +285,11 @@ export const RoleRegistry: React.FC = () => {
       {isCreateModalOpen && (
         <Modal
           isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-          title="Create Custom Role Blueprint"
+          onClose={() => {
+            setIsCreateModalOpen(false);
+            setEditingRole(null);
+          }}
+          title={editingRole ? `Edit Role: ${editingRole.name}` : "Create Custom Role Blueprint"}
           size="lg"
         >
           <form onSubmit={handleCreateRole} className="space-y-4 text-xs text-zinc-300 max-h-[78vh] overflow-y-auto pr-1">
@@ -270,6 +333,17 @@ export const RoleRegistry: React.FC = () => {
                 onChange={(e) => setNewRoleSkills(e.target.value)}
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-indigo-500/50"
                 required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-zinc-400 font-semibold">Default Heartbeat Instruction (Optional)</label>
+              <textarea
+                placeholder="e.g. Perform a routine self-status check..."
+                value={newRoleHeartbeat}
+                onChange={(e) => setNewRoleHeartbeat(e.target.value)}
+                rows={2}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-indigo-500/50 font-mono text-[11px] resize-none"
               />
             </div>
 
@@ -347,11 +421,11 @@ export const RoleRegistry: React.FC = () => {
             </div>
 
             <div className="flex justify-end gap-3 pt-3 border-t border-zinc-900/60">
-              <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => { setIsCreateModalOpen(false); setEditingRole(null); }}>
                 Cancel
               </Button>
               <Button type="submit" variant="purple" disabled={isSaving} className="flex items-center gap-1">
-                <Save size={14} /> {isSaving ? 'Registering...' : 'Register Role'}
+                <Save size={14} /> {isSaving ? 'Saving...' : (editingRole ? 'Save Changes' : 'Register Role')}
               </Button>
             </div>
           </form>

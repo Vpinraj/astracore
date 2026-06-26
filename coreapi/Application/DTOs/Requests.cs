@@ -104,3 +104,40 @@ public record CreateEmployeeRequest(
     string Avatar = "👤",
     string Status = "Active"
 );
+
+// ── Heartbeat ──────────────────────────────────────────────────────────────────
+
+/// <summary>Request body for setting an agent's autonomous heartbeat configuration.</summary>
+public record SetHeartbeatRequest(
+    bool Enabled,
+    int IntervalMinutes,
+    string Instruction
+);
+
+// ── Agent Update ───────────────────────────────────────────────────────────────
+
+/// <summary>
+/// PATCH request body for updating mutable agent fields.
+/// All fields are nullable/optional — only non-null values are applied.
+/// </summary>
+public class UpdateAgentRequest
+{
+    public string? Name { get; set; }
+    public string? Instructions { get; set; }
+    public string? ModelId { get; set; }
+    public string? Avatar { get; set; }
+    public int? Level { get; set; }
+    public double? Efficiency { get; set; }
+
+    // LLM / Role config
+    public double? Temperature { get; set; }
+    public int? MaxTokens { get; set; }
+    public string? OutputFormat { get; set; }
+    public string? MemoryType { get; set; }
+    public List<AgentTool>? Tools { get; set; }
+
+    // Heartbeat fields
+    public bool? HeartbeatEnabled { get; set; }
+    public int? HeartbeatIntervalMinutes { get; set; }
+    public string? HeartbeatInstruction { get; set; }
+}

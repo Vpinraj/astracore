@@ -94,20 +94,7 @@ export const Header: React.FC<HeaderProps> = ({ showMetrics = true }) => {
             )}
           </div>
 
-          {/* Reset DB Button */}
-          <button 
-            onClick={() => {
-              if (window.confirm("Are you sure you want to reset the database to the default seed state? All custom subsidiaries, hired agents, and active tasks will be overwritten.")) {
-                dispatch(resetStateRequest());
-              }
-            }}
-            disabled={isSyncing}
-            className="flex px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800 hover:border-zinc-700 active:scale-95 disabled:opacity-50 transition-all text-xs font-mono text-zinc-400 items-center gap-1.5 cursor-pointer"
-            title="Reset database to default seed state"
-          >
-            <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
-            <span className="hidden sm:inline">Reset DB</span>
-          </button>
+
 
           {/* Condensed runtime badge — hidden on very small screens */}
           <div className="hidden md:flex px-3.5 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-xs font-mono text-zinc-400 items-center gap-2">

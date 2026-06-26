@@ -47,6 +47,9 @@ export interface AgentRoleDefinition {
 
   // ── Tools the role is allowed to invoke ─────
   tools: AgentTool[];
+
+  // ── Default wake-up instruction for heartbeat ─
+  heartbeatInstruction?: string;
 }
 
 // ─────────────────────────────────────────────
@@ -54,6 +57,7 @@ export interface AgentRoleDefinition {
 // Represents a single turn in the agent's chat history
 // ─────────────────────────────────────────────
 export type MessageRole = 'system' | 'user' | 'assistant';
+export * from './executionLog';
 
 export interface ConversationMessage {
   role: MessageRole;
@@ -73,6 +77,7 @@ export const AGENT_ROLE_BLUEPRINTS: AgentRoleDefinition[] = [
     maxTokens: 2048,
     outputFormat: 'markdown',
     memoryType: 'long_term',
+    heartbeatInstruction: 'Assess overall organisational health across all subsidiaries. Flag any critical decisions pending, summarise top 3 strategic priorities, and issue any necessary directives to subordinate agents.',
     tools: [
       { name: 'read_reports',   description: 'Read financial and operational reports', enabled: true },
       { name: 'send_directive', description: 'Issue directives to subordinate agents', enabled: true },
@@ -86,6 +91,7 @@ export const AGENT_ROLE_BLUEPRINTS: AgentRoleDefinition[] = [
     maxTokens: 1024,
     outputFormat: 'json',
     memoryType: 'long_term',
+    heartbeatInstruction: 'Review current financial positions across all subsidiaries. Flag any budget overruns or cash-flow risks. Generate a brief financial health snapshot in JSON format and alert the CEO of any critical anomalies.',
     tools: [
       { name: 'read_ledger',    description: 'Access the subsidiary financial ledger',  enabled: true },
       { name: 'generate_report',description: 'Generate formatted financial reports',     enabled: true },
@@ -99,6 +105,7 @@ export const AGENT_ROLE_BLUEPRINTS: AgentRoleDefinition[] = [
     maxTokens: 4096,
     outputFormat: 'code',
     memoryType: 'short_term',
+    heartbeatInstruction: 'Scan for pending technical debt, infrastructure anomalies, and open deployment issues. Summarise current system health in code/markdown format and recommend one priority action for the next development cycle.',
     tools: [
       { name: 'code_exec',      description: 'Execute code in a sandboxed runtime',     enabled: true },
       { name: 'read_codebase',  description: 'Read source files from the repository',   enabled: true },
@@ -113,6 +120,7 @@ export const AGENT_ROLE_BLUEPRINTS: AgentRoleDefinition[] = [
     maxTokens: 2048,
     outputFormat: 'markdown',
     memoryType: 'short_term',
+    heartbeatInstruction: 'Review all active marketing campaigns and audience engagement metrics. Highlight the top-performing channel, identify one underperforming area, and propose a concrete growth action for the next cycle.',
     tools: [
       { name: 'web_search',     description: 'Research trends and competitor activity', enabled: true },
       { name: 'generate_copy',  description: 'Generate ad/content copy',                enabled: true },
@@ -126,6 +134,7 @@ export const AGENT_ROLE_BLUEPRINTS: AgentRoleDefinition[] = [
     maxTokens: 2048,
     outputFormat: 'markdown',
     memoryType: 'long_term',
+    heartbeatInstruction: 'Groom the product backlog: re-prioritise the top 5 tasks, flag any blocked user stories, and confirm sprint alignment with current OKRs. Provide a concise backlog health report.',
     tools: [
       { name: 'read_backlog',   description: 'Read and prioritize the task backlog',    enabled: true },
       { name: 'write_spec',     description: 'Write user story or feature specification',enabled: true },
@@ -139,6 +148,7 @@ export const AGENT_ROLE_BLUEPRINTS: AgentRoleDefinition[] = [
     maxTokens: 8192,
     outputFormat: 'code',
     memoryType: 'short_term',
+    heartbeatInstruction: 'Run a self-diagnostic: review any open pull requests or code review items in your context, check for failing tests, and report your current development status. Propose the single most impactful next coding action.',
     tools: [
       { name: 'code_exec',      description: 'Execute code in a sandboxed runtime',     enabled: true },
       { name: 'read_codebase',  description: 'Read files from the project repository',  enabled: true },
@@ -154,6 +164,7 @@ export const AGENT_ROLE_BLUEPRINTS: AgentRoleDefinition[] = [
     maxTokens: 2048,
     outputFormat: 'markdown',
     memoryType: 'none',
+    heartbeatInstruction: 'Review recent design deliverables and assess consistency with the design system. Highlight any accessibility or visual-hierarchy issues, and generate one concrete design improvement suggestion for the current UI.',
     tools: [
       { name: 'generate_image', description: 'Generate UI mockup images via AI',       enabled: true },
       { name: 'web_search',     description: 'Search design inspiration and libraries', enabled: true },
@@ -167,6 +178,7 @@ export const AGENT_ROLE_BLUEPRINTS: AgentRoleDefinition[] = [
     maxTokens: 1024,
     outputFormat: 'plain',
     memoryType: 'none',
+    heartbeatInstruction: 'Review the content calendar status and latest campaign performance. Assess what content is working well, identify gaps, and draft one fresh content idea that aligns with current audience trends.',
     tools: [
       { name: 'generate_copy',  description: 'Write marketing copy',                   enabled: true },
       { name: 'web_search',     description: 'Research trends and keywords',            enabled: true },
@@ -180,6 +192,7 @@ export const AGENT_ROLE_BLUEPRINTS: AgentRoleDefinition[] = [
     maxTokens: 4096,
     outputFormat: 'json',
     memoryType: 'short_term',
+    heartbeatInstruction: 'Run a regression sweep on recent code changes. Report any newly discovered bugs as structured JSON, verify test-suite coverage percentage, and flag any high-risk code paths that need immediate review.',
     tools: [
       { name: 'run_tests',      description: 'Execute automated test suites',           enabled: true },
       { name: 'read_codebase',  description: 'Inspect source code for issues',          enabled: true },
@@ -194,6 +207,7 @@ export const AGENT_ROLE_BLUEPRINTS: AgentRoleDefinition[] = [
     maxTokens: 512,
     outputFormat: 'plain',
     memoryType: 'short_term',
+    heartbeatInstruction: 'Check for any unresolved or escalated support tickets. Summarise open issues, assess SLA compliance status, and flag any tickets that require immediate human escalation or a knowledge-base update.',
     tools: [
       { name: 'read_kb',        description: 'Read knowledge base articles',            enabled: true },
       { name: 'send_email',     description: 'Reply to customer tickets via email',     enabled: true },
@@ -224,6 +238,25 @@ export interface Agent {
   level: number;
   efficiency: number;                  // 0.5–1.5 task speed multiplier
   conversationHistory: ConversationMessage[]; // Running memory of past turns
+
+  // ── Autonomous Heartbeat ───────────────────────────────────────────────────
+  heartbeatEnabled: boolean;           // Whether the autonomous pulse is active
+  heartbeatIntervalMinutes: number;    // How often the heartbeat fires (1–1440 min)
+  heartbeatInstruction: string;        // Instruction given to the agent on each wake-up
+  nextHeartbeatAt?: string | null;     // UTC ISO-8601 — when the next pulse fires
+  lastHeartbeatAt?: string | null;     // UTC ISO-8601 — when the last pulse fired
+}
+
+// ── Heartbeat Log ────────────────────────────────────────────────────────────
+export interface HeartbeatLog {
+  id: string;
+  agentId: string;
+  agentName: string;
+  timestamp: string;     // UTC ISO-8601
+  instruction: string;
+  response: string;
+  success: boolean;
+  errorMessage?: string | null;
 }
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'blocked_on_user' | string;
@@ -353,4 +386,18 @@ export interface RoleBlueprint {
   outputFormat: AgentOutputFormat;
   memoryType: AgentMemoryType;
   tools: AgentTool[];
+  heartbeatInstruction?: string;
+}
+
+// ─────────────────────────────────────────────
+// HELPER: default heartbeat instruction by role
+// ─────────────────────────────────────────────
+const FALLBACK_HEARTBEAT_INSTRUCTION =
+  'Perform a routine self-status check for your role. Report your current operational readiness, highlight any blockers, and propose one proactive action.';
+
+export function getDefaultHeartbeatInstruction(role: string): string {
+  const blueprint = AGENT_ROLE_BLUEPRINTS.find(
+    b => b.name.toLowerCase() === role.toLowerCase()
+  );
+  return blueprint?.heartbeatInstruction ?? FALLBACK_HEARTBEAT_INSTRUCTION;
 }

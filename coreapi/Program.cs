@@ -71,6 +71,8 @@ builder.Services.AddSingleton<IRepository<CatalogItem>>(sp =>
     new DocumentRepository<CatalogItem>(sp.GetRequiredService<IDocumentStore>(), "catalog_items"));
 builder.Services.AddSingleton<IRepository<RoleBlueprint>>(sp => 
     new DocumentRepository<RoleBlueprint>(sp.GetRequiredService<IDocumentStore>(), "role_blueprints"));
+builder.Services.AddSingleton<IRepository<HeartbeatLog>>(sp =>
+    new DocumentRepository<HeartbeatLog>(sp.GetRequiredService<IDocumentStore>(), "heartbeat_logs"));
 
 // Register application services
 builder.Services.AddSingleton<ILogService, LogService>();
@@ -82,6 +84,10 @@ builder.Services.AddSingleton<ILeadService, LeadService>();
 builder.Services.AddSingleton<IEmployeeService, EmployeeService>();
 builder.Services.AddSingleton<ISimulationEngine, SimulationEngine>();
 builder.Services.AddSingleton<ITaskProcessorService, TaskProcessorService>();
+builder.Services.AddSingleton<IHeartbeatService, HeartbeatService>();
+
+// Autonomous heartbeat background worker (IHostedService)
+builder.Services.AddHostedService<AgentHeartbeatWorker>();
 
 // Register NLP Command Handlers
 builder.Services.AddSingleton<ICommandHandler, CreateSubsidiaryCommandHandler>();

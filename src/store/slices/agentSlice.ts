@@ -65,8 +65,12 @@ const agentSlice = createSlice({
     toggleAgentChatFullScreen: (state) => {
       state.isChatFullScreen = !state.isChatFullScreen;
     },
+    updateAgent: (state, action: PayloadAction<Agent>) => {
+      const idx = state.items.findIndex(a => a.id === action.payload.id);
+      if (idx !== -1) state.items[idx] = action.payload;
+    },
   },
-});
+})
 
-export const { setAgents, setRoles, createAgentRequest, createAgentSuccess, openAgentChat, closeAgentChatTab, closeAgentChat, toggleAgentChatFullScreen } = agentSlice.actions;
+export const { setAgents, setRoles, updateAgent, createAgentRequest, createAgentSuccess, openAgentChat, closeAgentChatTab, closeAgentChat, toggleAgentChatFullScreen } = agentSlice.actions;
 export default agentSlice.reducer;
