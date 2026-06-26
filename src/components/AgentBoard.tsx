@@ -6,6 +6,8 @@ import { CreateAgentModal } from './CreateModals';
 import { Users, UserPlus, MessageSquare, Search, Building2 } from 'lucide-react';
 
 import { openAgentChat } from '../store/slices/agentSlice';
+import { Agent } from '../types';
+import { AgentDetailsModal } from './AgentDetailsModal';
 
 export const AgentBoard: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -16,6 +18,7 @@ export const AgentBoard: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
 
   const filteredAgents = agents.filter((agent) => {
     const matchSub = filterSub === 'all' || agent.subsidiaryId === filterSub;
@@ -119,7 +122,7 @@ export const AgentBoard: React.FC = () => {
                 <tr 
                   key={agent.id} 
                   className="hover:bg-zinc-900/40 cursor-pointer transition-colors group"
-                  onClick={() => dispatch(openAgentChat({ agentId: agent.id }))}
+                  onClick={() => setSelectedAgent(agent)}
                 >
                   <td className="p-4 pl-5">
                     <div className="flex items-center gap-3 min-w-0">
@@ -161,7 +164,10 @@ export const AgentBoard: React.FC = () => {
                     <Button
                       variant="ghost"
                       size="xs"
-                      onClick={() => dispatch(openAgentChat({ agentId: agent.id }))}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        dispatch(openAgentChat({ agentId: agent.id }));
+                      }}
                       className="p-1.5 text-zinc-400 hover:text-purple-400 hover:bg-purple-500/10"
                       title="Message Agent"
                     >
@@ -178,6 +184,12 @@ export const AgentBoard: React.FC = () => {
       <CreateAgentModal
         isOpen={isAgentModalOpen}
         onClose={() => setIsAgentModalOpen(false)}
+      />
+
+      <AgentDetailsModal
+        agent={selectedAgent}
+        isOpen={!!selectedAgent}
+        onClose={() => setSelectedAgent(null)}
       />
     </div>
   );
