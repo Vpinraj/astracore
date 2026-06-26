@@ -144,13 +144,22 @@ export const api = {
     if (!response.ok) throw new Error('Failed to delete employee');
     return response.json();
   },
-  chatWithAgent: async (agentId: string, message: string, history: any[]) => {
+  chatWithAgent: async (agentId: string, message: string, history: any[], attachments: any[] = []) => {
     const response = await fetch(`${API_BASE_URL}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ agentId, message, history }),
+      body: JSON.stringify({ agentId, message, history, attachments }),
     });
     if (!response.ok) throw new Error('Failed to chat with agent');
+    return response.json();
+  },
+  extractTransactionData: async (fileData: string, fileName: string, subsidiaryId: string) => {
+    const response = await fetch(`${API_BASE_URL}/simulation/extract-transaction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileData, fileName, subsidiaryId }),
+    });
+    if (!response.ok) throw new Error('Failed to extract transaction data');
     return response.json();
   },
   // Dynamic Roles

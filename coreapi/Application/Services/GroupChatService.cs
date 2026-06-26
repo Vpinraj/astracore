@@ -25,7 +25,7 @@ public class GroupChatService
         _kernelProviderService = kernelProviderService;
     }
 
-    public async Task<List<ResultMessageDto>> RunHierarchicalChatAsync(string primaryAgentId, string message, List<ChatMessageDto> history, CancellationToken cancellationToken = default)
+    public async Task<List<ResultMessageDto>> RunHierarchicalChatAsync(string primaryAgentId, string message, List<ChatMessageDto> history, List<AttachmentDto>? attachments = null, CancellationToken cancellationToken = default)
     {
         var primaryAgent = await _agentService.GetByIdAsync(primaryAgentId);
         if (primaryAgent == null) return new List<ResultMessageDto>();
@@ -87,7 +87,42 @@ public class GroupChatService
         }
 
         // 5. Add new message
-        chat.AddChatMessage(new ChatMessageContent(AuthorRole.User, message));
+        var msgContentItems = new ChatMessageContentItemCollection();
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            msgContentItems.Add(new TextContent(message));
+        }
+        
+        if (attachments != null)
+        {
+            foreach (var att in attachments)
+            {
+                if (att.Data.StartsWith("data:image/"))
+                {
+                    var commaIndex = att.Data.IndexOf(',');
+                    var mimeType = att.Data.Substring(5, att.Data.IndexOf(';') - 5);
+                    var base64Data = att.Data.Substring(commaIndex + 1);
+                    var imageBytes = Convert.FromBase64String(base64Data);
+                    msgContentItems.Add(new ImageContent(new ReadOnlyMemory<byte>(imageBytes), mimeType));
+                }
+                else
+                {
+                    // Fallback to text representation or stripping data URI header
+                    var base64Data = att.Data.Contains(",") ? att.Data.Substring(att.Data.IndexOf(",") + 1) : att.Data;
+                    try
+                    {
+                        var textData = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(base64Data));
+                        msgContentItems.Add(new TextContent($"\n--- Attachment: {att.Name} ---\n{textData}\n--- End Attachment ---"));
+                    }
+                    catch
+                    {
+                        msgContentItems.Add(new TextContent($"\n[Attachment {att.Name} provided but could not be parsed as text]"));
+                    }
+                }
+            }
+        }
+        
+        chat.AddChatMessage(new ChatMessageContent(AuthorRole.User, msgContentItems));
 
         var outputLogs = new List<ResultMessageDto>();
 

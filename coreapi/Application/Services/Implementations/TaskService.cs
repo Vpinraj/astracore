@@ -35,7 +35,7 @@ public class TaskService : ITaskService
         _serviceProvider = serviceProvider;
     }
 
-    public async Task<TaskItem> CreateTaskAsync(string title, string description, string subsidiaryId, string assignedAgentId)
+    public async Task<TaskItem> CreateTaskAsync(string title, string description, string subsidiaryId, string assignedAgentId, string attachedFileName = "", string attachedFileData = "")
     {
         var random = new Random();
         var duration = 10 + random.Next(15);
@@ -50,7 +50,9 @@ public class TaskService : ITaskService
             Status = "pending",
             Progress = 0,
             Duration = duration,
-            Logs = new() { "Task pipeline initialized. Awaiting deployment..." }
+            Logs = new() { "Task pipeline initialized. Awaiting deployment..." },
+            AttachedFileName = attachedFileName ?? string.Empty,
+            AttachedFileData = attachedFileData ?? string.Empty
         };
 
         await _taskRepository.SaveAsync(task);

@@ -193,7 +193,11 @@ export const TaskBoard: React.FC = () => {
                   const assignedAgent = getAgent(task.assignedAgentId);
 
                   return (
-                    <tr key={task.id} className="hover:bg-zinc-900/20 transition-all duration-200">
+                    <tr 
+                      key={task.id} 
+                      className="hover:bg-zinc-900/40 cursor-pointer transition-all duration-200 group"
+                      onClick={() => setSelectedTask(task)}
+                    >
                       <td className="p-4 pl-5 font-mono text-[10px] text-zinc-500">
                         {task.id.replace('task-', '')}
                       </td>
@@ -234,14 +238,6 @@ export const TaskBoard: React.FC = () => {
                         </Badge>
                       </td>
                       <td className="p-4 pr-5 text-right flex items-center justify-end gap-1">
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          onClick={() => setSelectedTask(task)}
-                          className="bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800 text-[10px] h-7 px-3 font-medium"
-                        >
-                          Details
-                        </Button>
                         <Button
                           variant="ghost"
                           size="xs"

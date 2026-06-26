@@ -7,6 +7,7 @@ import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import type { AgentRole, AgentOutputFormat, AgentMemoryType, AgentTool } from '../types';
 import { AGENT_ROLE_BLUEPRINTS } from '../types';
+import { Paperclip, X } from 'lucide-react';
 
 // ==========================================
 // 1. CREATE SUBSIDIARY MODAL
@@ -542,6 +543,22 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [subsidiaryId, setSubsidiaryId] = useState(defaultSubsidiaryId || '');
   const [agentId, setAgentId] = useState(defaultAgentId || '');
   const [error, setError] = useState('');
+  const [attachment, setAttachment] = useState<{name: string, data: string, type: string} | null>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAttachment({
+          name: file.name,
+          data: reader.result as string,
+          type: file.type
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Sync state variables
   React.useEffect(() => {
@@ -596,9 +613,17 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     const sub = subsidiaries.find(s => s.id === subsidiaryId);
     if (!sub) return;
 
-    dispatch(createTaskRequest({ title, description, subsidiaryId, assignedAgentId: agentId }));
+    dispatch(createTaskRequest({ 
+      title, 
+      description, 
+      subsidiaryId, 
+      assignedAgentId: agentId,
+      attachedFileName: attachment?.name,
+      attachedFileData: attachment?.data
+    }));
     setTitle('');
     setDescription('');
+    setAttachment(null);
     setError('');
     onClose();
   };
@@ -633,6 +658,36 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             className="w-full h-16 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-purple-500/50 resize-none"
             required
           />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-zinc-400 font-medium">Task Attachment (Optional)</label>
+          <div className="flex items-center gap-3">
+            <input
+              type="file"
+              id="task-file-upload"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => document.getElementById('task-file-upload')?.click()}
+              className="border-zinc-800 hover:border-zinc-700 text-zinc-300 px-3 py-1.5"
+            >
+              <Paperclip size={14} className="mr-1.5 inline-block -mt-0.5" />
+              Attach File
+            </Button>
+            {attachment && (
+              <div className="flex items-center gap-2 px-2 py-1 bg-zinc-900 border border-zinc-800 rounded-md text-xs text-zinc-300">
+                <span className="truncate max-w-[150px]">{attachment.name}</span>
+                <button type="button" onClick={() => setAttachment(null)} className="text-zinc-500 hover:text-red-400 ml-1">
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

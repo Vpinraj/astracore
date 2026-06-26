@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Building2, Users, Terminal, Cpu, Menu, X, ClipboardList, Target, GitBranch, HelpCircle, Package } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, Terminal, Cpu, Menu, X, ClipboardList, Target, GitBranch, HelpCircle, Package, FileText } from 'lucide-react';
 
-export type TabType = 'overview' | 'subsidiaries' | 'agents' | 'tasks' | 'catalog' | 'questions' | 'terminal' | 'leads' | 'team';
+export type TabType = 'overview' | 'subsidiaries' | 'transactions' | 'agents' | 'tasks' | 'catalog' | 'questions' | 'terminal' | 'leads' | 'team';
 
 interface SidebarProps {
   activeTab: TabType;
@@ -14,6 +14,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
   const menuItems = [
     { id: 'overview' as TabType, label: 'Overview', icon: LayoutDashboard },
     { id: 'subsidiaries' as TabType, label: 'Subsidiaries', icon: Building2 },
+    { id: 'transactions' as TabType, label: 'Transactions & Ledger', icon: FileText },
     { id: 'agents' as TabType, label: 'AI Agent Squads', icon: Users },
     { id: 'tasks' as TabType, label: 'Task Board', icon: ClipboardList },
     { id: 'catalog' as TabType, label: 'Product Catalog', icon: Package },
@@ -57,8 +58,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent'
               }`}
             >
-              <Icon size={18} className={isActive ? 'text-purple-400' : 'text-zinc-400'} />
-              <span>{item.label}</span>
+              <Icon size={18} className={`shrink-0 ${isActive ? 'text-purple-400' : 'text-zinc-400'}`} />
+              <span className="text-left leading-tight">{item.label}</span>
               {isActive && (
                 <div className="ml-auto w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
               )}

@@ -4,6 +4,7 @@ import { createTransactionRequest } from '../store/slices/financeSlice';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Upload, HelpCircle, FileText, Check, AlertCircle } from 'lucide-react';
+import { api } from '../api';
 
 interface CreateTransactionModalProps {
   isOpen: boolean;
@@ -100,39 +101,37 @@ export const CreateTransactionModal: React.FC<CreateTransactionModalProps> = ({
     }
   }, [isOpen, defaultSubsidiaryId]);
 
-  // Simulate Bill File Upload
+  // Real Bill File Upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setIsUploading(true);
       setError('');
       
-      // Simulate extraction lag
-      setTimeout(() => {
-        setUploadedFileName(file.name);
-        setIsUploading(false);
-        
-        // Auto-extract mock invoice values to show "agent automation" behavior!
-        const randomTotal = Math.floor(Math.random() * 15000) + 1500;
-        setSubtotal(randomTotal);
-        setDiscount(0);
-        setReferenceNumber(`INV-BILL-${Math.floor(Math.random() * 900000) + 100000}`);
-        
-        // Pick a partner name based on file/type
-        if (type === 'Procurement') {
-          const vendors = ['AWS Cloud Services', 'Google Workspaces', 'Slack Technologies', 'Zoom Video Corp', 'Airtel Broadband'];
-          setPartnerName(vendors[Math.floor(Math.random() * vendors.length)]);
-          setDescription('Auto-extracted operational vendor bill invoice');
-        } else {
-          setPartnerName('External Business Partner');
-          setDescription('Auto-extracted client invoice');
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64Data = reader.result as string;
+          const res = await api.extractTransactionData(base64Data, file.name, subsidiaryId);
+          
+          setUploadedFileName(file.name);
+          
+          if (res.subtotal) setSubtotal(res.subtotal);
+          if (res.discount) setDiscount(res.discount);
+          if (res.referenceNumber) setReferenceNumber(res.referenceNumber);
+          if (res.partnerName) setPartnerName(res.partnerName);
+          if (res.description) setDescription(res.description);
+          
+          if (subsidiaryAgents.length > 0 && !processedByAgentId) {
+            setProcessedByAgentId(subsidiaryAgents[0].id);
+          }
+        } catch (err: any) {
+          setError('Failed to extract invoice data automatically.');
+        } finally {
+          setIsUploading(false);
         }
-
-        // Auto-assign the first active agent as the bill processor!
-        if (subsidiaryAgents.length > 0) {
-          setProcessedByAgentId(subsidiaryAgents[0].id);
-        }
-      }, 1500);
+      };
+      reader.readAsDataURL(file);
     }
   };
 

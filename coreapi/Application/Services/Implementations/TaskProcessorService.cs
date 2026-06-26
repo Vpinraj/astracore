@@ -62,9 +62,36 @@ public class TaskProcessorService : ITaskProcessorService
             };
 
             var chatHistory = new ChatHistory();
+            var msgContentItems = new ChatMessageContentItemCollection();
             string prompt = $"Task Title: {task.Title}\n\nTask Description: {task.Description}\n\nPlease execute this task and provide the complete output. If you have any clarifying questions or doubts that block your progress, you can use the AskQuestionToUser tool.";
-            
-            chatHistory.AddUserMessage(prompt);
+            msgContentItems.Add(new TextContent(prompt));
+
+            if (!string.IsNullOrWhiteSpace(task.AttachedFileData))
+            {
+                if (task.AttachedFileData.StartsWith("data:image/"))
+                {
+                    var commaIndex = task.AttachedFileData.IndexOf(',');
+                    var mimeType = task.AttachedFileData.Substring(5, task.AttachedFileData.IndexOf(';') - 5);
+                    var base64Data = task.AttachedFileData.Substring(commaIndex + 1);
+                    var imageBytes = Convert.FromBase64String(base64Data);
+                    msgContentItems.Add(new ImageContent(new ReadOnlyMemory<byte>(imageBytes), mimeType));
+                }
+                else
+                {
+                    var base64Data = task.AttachedFileData.Contains(",") ? task.AttachedFileData.Substring(task.AttachedFileData.IndexOf(",") + 1) : task.AttachedFileData;
+                    try
+                    {
+                        var textData = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(base64Data));
+                        msgContentItems.Add(new TextContent($"\n--- Attached File: {task.AttachedFileName} ---\n{textData}\n--- End Attached File ---"));
+                    }
+                    catch
+                    {
+                        msgContentItems.Add(new TextContent($"\n[Attached File {task.AttachedFileName} provided but could not be parsed as text]"));
+                    }
+                }
+            }
+
+            chatHistory.Add(new ChatMessageContent(AuthorRole.User, msgContentItems));
 
             string oldOutput = task.Output ?? string.Empty;
             string outputText = string.Empty;

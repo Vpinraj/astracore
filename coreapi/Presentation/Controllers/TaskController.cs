@@ -24,7 +24,7 @@ public class TaskController : ControllerBase
         {
             return BadRequest("Invalid task attributes");
         }
-        var task = await _taskService.CreateTaskAsync(req.Title, req.Description, req.SubsidiaryId, req.AssignedAgentId ?? string.Empty);
+        var task = await _taskService.CreateTaskAsync(req.Title, req.Description, req.SubsidiaryId, req.AssignedAgentId ?? string.Empty, req.AttachedFileName ?? string.Empty, req.AttachedFileData ?? string.Empty);
         return Ok(task);
     }
 

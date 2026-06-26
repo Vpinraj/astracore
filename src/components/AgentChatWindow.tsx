@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { closeAgentChat, toggleAgentChatFullScreen, openAgentChat, closeAgentChatTab } from '../store/slices/agentSlice';
-import { Mic, MicOff, Send, X, Maximize2, Minimize2, Sparkles, User, Loader2, Plus } from 'lucide-react';
+import { Mic, MicOff, Send, X, Maximize2, Minimize2, Sparkles, User, Loader2, Plus, Paperclip, Download } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { exportAndSharePdf } from '../utils/pdfUtils';
 import { Button } from './ui/Button';
 import { api } from '../api';
 import { ConversationMessage } from '../types';
@@ -17,9 +20,25 @@ export const AgentChatWindow: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [attachment, setAttachment] = useState<{name: string, data: string, type: string} | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAttachment({
+          name: file.name,
+          data: reader.result as string,
+          type: file.type
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const activeAgent = agents.find(a => a.id === activeChatAgentId);
 
   useEffect(() => {
@@ -47,13 +66,14 @@ export const AgentChatWindow: React.FC = () => {
   if (openChatIds.length === 0) return null;
 
   const handleSendMessage = async (text: string) => {
-    if (!text.trim() || isLoading || !activeAgent) return;
+    if ((!text.trim() && !attachment) || isLoading || !activeAgent) return;
     
     const agentId = activeAgent.id;
+    const contentToDisplay = attachment ? (text.trim() ? `${text}\n\n*[Attached: ${attachment.name}]*` : `*[Attached: ${attachment.name}]*`) : text;
 
     const userMessage: ConversationMessage = {
       role: 'user',
-      content: text,
+      content: contentToDisplay,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
@@ -62,11 +82,13 @@ export const AgentChatWindow: React.FC = () => {
       [agentId]: [...(prev[agentId] || []), userMessage]
     }));
     setInputText('');
+    const atts = attachment ? [attachment] : [];
+    setAttachment(null);
     setIsLoading(true);
 
     try {
       const historyToSend = chatHistories[agentId] || [];
-      const res = await api.chatWithAgent(agentId, text, historyToSend);
+      const res = await api.chatWithAgent(agentId, text, historyToSend, atts);
       
       if (res.messages && Array.isArray(res.messages)) {
         const newMessages = res.messages.map((m: any) => ({
@@ -211,6 +233,15 @@ export const AgentChatWindow: React.FC = () => {
               <Button
                 variant="ghost"
                 size="xs"
+                onClick={() => exportAndSharePdf(`chat-messages-${activeAgent.id}`, `Chat_Log_${activeAgent.name.replace(/\s+/g, '_')}`)}
+                className="p-1.5 text-zinc-400 hover:text-purple-400"
+                title="Export / Share PDF"
+              >
+                <Download size={16} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="xs"
                 onClick={() => dispatch(toggleAgentChatFullScreen())}
                 className="p-1.5 text-zinc-400 hover:text-zinc-100"
                 title={isFullScreen ? 'Minimize' : 'Full Screen'}
@@ -221,7 +252,7 @@ export const AgentChatWindow: React.FC = () => {
           </div>
 
           {/* Messages Stream */}
-          <div className={`flex-1 p-4 overflow-y-auto space-y-4 bg-zinc-950/80 select-text ${isFullScreen ? 'px-8 md:px-24' : ''}`}>
+          <div id={`chat-messages-${activeAgent.id}`} className={`flex-1 p-4 overflow-y-auto space-y-4 bg-zinc-950/80 select-text ${isFullScreen ? 'px-8 md:px-24' : ''}`}>
             {currentMessages.map((msg, idx) => {
               const isUser = msg.role === 'user';
               const isSystem = msg.role === 'system';
@@ -250,10 +281,16 @@ export const AgentChatWindow: React.FC = () => {
                     className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed border ${
                       isUser
                         ? 'bg-purple-600/20 text-purple-100 border-purple-500/40 rounded-tr-none shadow-[0_0_15px_rgba(168,85,247,0.1)]'
-                        : 'bg-zinc-900 text-zinc-200 border-zinc-700/50 rounded-tl-none whitespace-pre-wrap shadow-sm'
+                        : 'bg-zinc-900 text-zinc-200 border-zinc-700/50 rounded-tl-none shadow-sm'
                     }`}
                   >
-                    {msg.content}
+                    {isUser ? (
+                      <span className="whitespace-pre-wrap">{msg.content}</span>
+                    ) : (
+                      <div className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-zinc-950 prose-pre:border prose-pre:border-zinc-800">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -280,33 +317,56 @@ export const AgentChatWindow: React.FC = () => {
               e.preventDefault();
               handleSendMessage(inputText);
             }}
-            className={`p-4 bg-zinc-900/80 border-t border-zinc-800 flex items-end gap-3 ${isFullScreen ? 'px-8 md:px-24 py-6' : ''}`}
+            className={`p-4 bg-zinc-900/80 border-t border-zinc-800 flex flex-col gap-2 ${isFullScreen ? 'px-8 md:px-24 py-6' : ''}`}
           >
-            <div className="flex-1 bg-zinc-950 border border-zinc-700 hover:border-zinc-600 focus-within:border-purple-500/60 rounded-xl overflow-hidden transition-colors shadow-inner flex">
-              <textarea
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage(inputText);
-                  }
-                }}
-                placeholder={`Message ${activeAgent.name}...`}
-                disabled={isLoading}
-                rows={1}
-                className="flex-1 bg-transparent px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none max-h-32 min-h-[44px]"
-                style={{ height: 'auto' }}
-              />
+            {attachment && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 rounded-md text-xs text-zinc-300 w-fit">
+                <Paperclip size={12} className="text-purple-400" />
+                <span className="truncate max-w-[200px]">{attachment.name}</span>
+                <button type="button" onClick={() => setAttachment(null)} className="text-zinc-500 hover:text-red-400 ml-1"><X size={12}/></button>
+              </div>
+            )}
+            <div className="flex items-end gap-3 w-full">
+              <div className="flex-1 bg-zinc-950 border border-zinc-700 hover:border-zinc-600 focus-within:border-purple-500/60 rounded-xl overflow-hidden transition-colors shadow-inner flex">
+                <input
+                  type="file"
+                  id={`chat-file-${activeAgent.id}`}
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                <button
+                  type="button"
+                  onClick={() => document.getElementById(`chat-file-${activeAgent.id}`)?.click()}
+                  className="p-3 text-zinc-400 hover:text-zinc-200 transition-colors h-[44px] flex items-center justify-center shrink-0"
+                  title="Attach file"
+                >
+                  <Paperclip size={18} />
+                </button>
+                <textarea
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage(inputText);
+                    }
+                  }}
+                  placeholder={`Message ${activeAgent.name}...`}
+                  disabled={isLoading}
+                  rows={1}
+                  className="flex-1 bg-transparent px-2 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none max-h-32 min-h-[44px]"
+                  style={{ height: 'auto' }}
+                />
+              </div>
+              <Button
+                type="submit"
+                variant="purple"
+                disabled={(!inputText.trim() && !attachment) || isLoading}
+                className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-purple-900/20"
+              >
+                <Send size={20} className={(!inputText.trim() && !attachment) || isLoading ? 'opacity-50' : 'opacity-100'} />
+              </Button>
             </div>
-            <Button
-              type="submit"
-              variant="purple"
-              disabled={!inputText.trim() || isLoading}
-              className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-purple-900/20"
-            >
-              <Send size={20} className={!inputText.trim() || isLoading ? 'opacity-50' : 'opacity-100'} />
-            </Button>
           </form>
         </>
       ) : (

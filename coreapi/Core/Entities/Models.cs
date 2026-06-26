@@ -93,6 +93,8 @@ public class TaskItem : IEntity
     public string Output { get; set; } = string.Empty;
     public string PendingQuestion { get; set; } = string.Empty;
     public string PendingAnswer { get; set; } = string.Empty;
+    public string AttachedFileName { get; set; } = string.Empty;
+    public string AttachedFileData { get; set; } = string.Empty;
 }
 
 public class ActivityLog : IEntity

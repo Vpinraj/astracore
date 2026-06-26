@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { clearLogsRequest } from '../store/slices/coreSlice';
-import { Terminal, ShieldAlert, CheckCircle, Info, RefreshCw, Trash2 } from 'lucide-react';
+import { Terminal, ShieldAlert, CheckCircle, Info, RefreshCw, Trash2, Download } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { exportAndSharePdf } from '../utils/pdfUtils';
 import { Button } from './ui/Button';
 
 export const TaskTerminal: React.FC = () => {
@@ -71,7 +74,7 @@ export const TaskTerminal: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-[420px] sm:h-[480px] md:h-[520px] rounded-xl border border-zinc-800 bg-zinc-950/90 font-mono text-xs overflow-hidden shadow-2xl relative hologram-scanlines">
+    <div id="task-terminal-logs" className="flex flex-col h-[420px] sm:h-[480px] md:h-[520px] rounded-xl border border-zinc-800 bg-zinc-950/90 font-mono text-xs overflow-hidden shadow-2xl relative hologram-scanlines">
       {/* Terminal Bar */}
       <div className="flex items-center justify-between px-3 md:px-4 py-2.5 md:py-3 bg-zinc-900 border-b border-zinc-800/85 gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -128,13 +131,22 @@ export const TaskTerminal: React.FC = () => {
           >
             SUCCESS
           </Button>
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={handleClearLogs}
-            className="p-1 text-zinc-500 hover:text-rose-400 ml-1"
-            title="Clear Stream Logs"
-          >
+            <Button 
+              variant="outline" 
+              size="xs" 
+              onClick={() => exportAndSharePdf('task-terminal-logs', 'Terminal_Logs_Export')}
+              className="bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-purple-400 p-1 md:p-1.5"
+              title="Export / Share Logs"
+            >
+              <Download size={14} />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="xs" 
+              onClick={handleClearLogs}
+              className="bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-red-400 p-1 md:p-1.5"
+              title="Clear Logs"
+            >
             <Trash2 size={13} />
           </Button>
         </div>
@@ -193,10 +205,10 @@ export const TaskTerminal: React.FC = () => {
 
               {getLogIcon(log.type)}
 
-              <span className={`${getLogClass(log.type)} break-all min-w-0`}>
+              <div className={`${getLogClass(log.type)} break-all min-w-0 prose prose-invert prose-xs max-w-none`}>
                 {log.agentName && <strong className="text-zinc-100 font-medium mr-1.5">{log.agentName}:</strong>}
-                {log.message}
-              </span>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{log.message}</ReactMarkdown>
+              </div>
             </div>
           ))
         )}

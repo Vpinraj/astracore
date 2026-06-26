@@ -6,7 +6,7 @@ namespace CoreApi.Application.Services.Interfaces;
 
 public interface ITaskService
 {
-    Task<TaskItem> CreateTaskAsync(string title, string description, string subsidiaryId, string assignedAgentId = "");
+    Task<TaskItem> CreateTaskAsync(string title, string description, string subsidiaryId, string assignedAgentId = "", string attachedFileName = "", string attachedFileData = "");
     Task StartTaskAsync(string taskId);
     Task AssignAgentAsync(string taskId, string agentId);
     Task<IEnumerable<TaskItem>> GetAllAsync();

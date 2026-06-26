@@ -21,6 +21,7 @@ import { EmployeeDirectory } from './components/EmployeeDirectory';
 import { OrgTree } from './components/OrgTree';
 import { CatalogBoard } from './components/CatalogBoard';
 import { RoleRegistry } from './components/RoleRegistry';
+import { BalanceSheet } from './components/BalanceSheet';
 import type { Subsidiary } from './types';
 
 function DashboardLayout() {
@@ -63,6 +64,8 @@ function DashboardLayout() {
           );
         }
         return <SubsidiaryGrid onViewDetails={setSelectedSubsidiary} />;
+      case 'transactions':
+        return <BalanceSheet />;
       case 'agents':
         return (
           <div className="space-y-5">

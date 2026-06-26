@@ -19,12 +19,12 @@ public class ChatController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ChatResult>> ChatWithAgent([FromBody] ChatRequestDto req)
     {
-        if (req == null || string.IsNullOrWhiteSpace(req.Message))
+        if (req == null || (string.IsNullOrWhiteSpace(req.Message) && req.Attachments.Count == 0))
         {
-            return BadRequest("Message cannot be empty");
+            return BadRequest("Message and attachments cannot both be empty");
         }
         
-        var resultMessages = await _groupChatService.RunHierarchicalChatAsync(req.AgentId, req.Message, req.History);
+        var resultMessages = await _groupChatService.RunHierarchicalChatAsync(req.AgentId, req.Message, req.History, req.Attachments);
         
         return Ok(new ChatResult
         {
@@ -38,6 +38,14 @@ public class ChatRequestDto
     public string AgentId { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
     public List<ChatMessageDto> History { get; set; } = new();
+    public List<AttachmentDto> Attachments { get; set; } = new();
+}
+
+public class AttachmentDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string Data { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
 }
 
 public class ChatMessageDto

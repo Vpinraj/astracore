@@ -29,7 +29,9 @@ public record CreateTaskRequest(
     string Title,
     string Description,
     string SubsidiaryId,
-    string AssignedAgentId
+    string AssignedAgentId,
+    string? AttachedFileName = null,
+    string? AttachedFileData = null
 );
 
 public record AllocateFundsRequest(

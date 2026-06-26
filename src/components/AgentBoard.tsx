@@ -116,7 +116,11 @@ export const AgentBoard: React.FC = () => {
               </tr>
             ) : (
               filteredAgents.map((agent) => (
-                <tr key={agent.id} className="hover:bg-zinc-900/20 text-zinc-300 transition-colors group">
+                <tr 
+                  key={agent.id} 
+                  className="hover:bg-zinc-900/40 cursor-pointer transition-colors group"
+                  onClick={() => dispatch(openAgentChat({ agentId: agent.id }))}
+                >
                   <td className="p-4 pl-5">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="text-xl w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
