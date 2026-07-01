@@ -261,6 +261,13 @@ export interface HeartbeatLog {
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'blocked_on_user' | string;
 
+export interface TaskDiscussionMessage {
+  role: string; // 'user' | 'agent' | 'system'
+  content: string;
+  timestamp: string;
+  senderName?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -274,6 +281,7 @@ export interface Task {
   output?: string;    // task result or final action evaluation
   pendingQuestion?: string;
   pendingAnswer?: string;
+  discussion?: TaskDiscussionMessage[];
 }
 
 export type LogType = 'info' | 'success' | 'warning' | 'agent_action' | 'system';
@@ -400,4 +408,65 @@ export function getDefaultHeartbeatInstruction(role: string): string {
     b => b.name.toLowerCase() === role.toLowerCase()
   );
   return blueprint?.heartbeatInstruction ?? FALLBACK_HEARTBEAT_INSTRUCTION;
+}
+
+// ─────────────────────────────────────────────
+// TEAM CHAT (Group Chat)
+// ─────────────────────────────────────────────
+export interface GroupChat {
+  id: string;
+  name: string;
+  participantIds: string[];
+  createdAt: string;
+}
+
+export interface GroupChatMessage {
+  id: string;
+  groupChatId: string;
+  senderId: string;
+  senderName: string;
+  senderType: 'user' | 'agent' | 'employee';
+  content: string;
+  timestamp: string;
+}
+
+// ─────────────────────────────────────────────
+// MEMORY BOOK
+// ─────────────────────────────────────────────
+export type MemoryCategory =
+  | 'preference'
+  | 'project'
+  | 'goal'
+  | 'lesson'
+  | 'decision'
+  | 'fact'
+  | 'person'
+  | 'company';
+
+export type MemorySource = 'agent' | 'user' | 'heartbeat' | 'task';
+
+export interface MemoryEntry {
+  id: string;
+  /** agentId for agent-owned entries, "global" for company-wide */
+  ownerId: string;
+  /** Display name of the owner */
+  ownerName: string;
+  /**
+   * Visibility scope:
+   *   "global"      → all agents
+   *   role name     → agents of that role
+   *   subsidiaryId  → agents in that subsidiary
+   *   agentId       → private to one agent
+   */
+  audience: string;
+  category: MemoryCategory;
+  /** Short label / headline */
+  key: string;
+  /** Full memory content */
+  value: string;
+  source: MemorySource;
+  pinned: boolean;
+  accessCount: number;
+  createdAt: string;
+  updatedAt: string;
 }

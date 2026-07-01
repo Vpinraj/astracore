@@ -41,7 +41,7 @@ public class GroupChatService
         var mainSkAgent = new ChatCompletionAgent
         {
             Name = primaryAgent.Name.Replace(" ", "_"), // SK Agent names cannot contain spaces
-            Instructions = $"You are {primaryAgent.Name}, a {primaryAgent.Role}. {primaryAgent.Instructions}\nYou are talking directly to the user. If the user asks for details outside your domain, you can ask the other agents in this chat for information before responding to the user. Always wait for them to provide the info if you ask.",
+            Instructions = $"You are {primaryAgent.Name}, a {primaryAgent.Role}. Your Agent ID is '{primaryAgent.Id}'. {primaryAgent.Instructions}\nYou are talking directly to the user. If the user asks for details outside your domain, you can ask the other agents in this chat for information before responding to the user. Always wait for them to provide the info if you ask.",
             Kernel = _kernelProviderService.CreateKernel(primaryAgent.ModelId, primaryAgent.SubsidiaryId),
             Arguments = new KernelArguments(new Microsoft.SemanticKernel.Connectors.OpenAI.OpenAIPromptExecutionSettings 
             { 
@@ -56,7 +56,7 @@ public class GroupChatService
             skAgents.Add(new ChatCompletionAgent
             {
                 Name = subAgent.Name.Replace(" ", "_"),
-                Instructions = $"You are {subAgent.Name}, a {subAgent.Role}. {subAgent.Instructions}\nYou are assisting {primaryAgent.Name}. Only respond if {primaryAgent.Name} explicitly asks you a question.",
+                Instructions = $"You are {subAgent.Name}, a {subAgent.Role}. Your Agent ID is '{subAgent.Id}'. {subAgent.Instructions}\nYou are assisting {primaryAgent.Name}. Only respond if {primaryAgent.Name} explicitly asks you a question.",
                 Kernel = _kernelProviderService.CreateKernel(subAgent.ModelId, subAgent.SubsidiaryId),
                 Arguments = new KernelArguments(new Microsoft.SemanticKernel.Connectors.OpenAI.OpenAIPromptExecutionSettings 
                 { 
@@ -162,7 +162,6 @@ public class DefaultTerminationStrategy : TerminationStrategy
 {
     private readonly string _primaryAgentName;
     private readonly int _agentCount;
-    private int _turnCount = 0;
 
     public DefaultTerminationStrategy(string primaryAgentName, int agentCount)
     {

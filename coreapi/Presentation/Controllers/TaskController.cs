@@ -62,6 +62,17 @@ public class TaskController : ControllerBase
         return Ok(new { success = true });
     }
 
+    [HttpPut("task/{taskId}")]
+    public async Task<IActionResult> UpdateTask(string taskId, [FromBody] UpdateTaskRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(taskId) || req == null)
+        {
+            return BadRequest("Invalid request");
+        }
+        await _taskService.UpdateTaskAsync(taskId, req.Title, req.Description, req.AssignedAgentId ?? string.Empty);
+        return Ok(new { success = true });
+    }
+
     [HttpDelete("task/{taskId}")]
     public async Task<IActionResult> DeleteTask(string taskId)
     {
@@ -72,9 +83,46 @@ public class TaskController : ControllerBase
         await _taskService.DeleteAsync(taskId);
         return Ok(new { success = true });
     }
+
+    [HttpPost("task/{taskId}/discussion")]
+    public async Task<IActionResult> AddDiscussionMessage(string taskId, [FromBody] PostTaskDiscussionRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(taskId) || req == null || string.IsNullOrWhiteSpace(req.Content))
+        {
+            return BadRequest("Invalid request");
+        }
+        await _taskService.AddDiscussionMessageAsync(taskId, req.Content, req.SenderName ?? "User", req.Role ?? "user");
+        return Ok(new { success = true });
+    }
+
+    [HttpGet("task/{taskId}/discussion")]
+    public async Task<IActionResult> GetDiscussion(string taskId)
+    {
+        if (string.IsNullOrWhiteSpace(taskId))
+        {
+            return BadRequest("Invalid task reference");
+        }
+        var task = await _taskService.GetByIdAsync(taskId);
+        if (task == null) return NotFound();
+        return Ok(task.Discussion);
+    }
 }
 
 public class AnswerTaskRequest
 {
     public string Answer { get; set; } = string.Empty;
+}
+
+public class UpdateTaskRequest
+{
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string? AssignedAgentId { get; set; }
+}
+
+public class PostTaskDiscussionRequest
+{
+    public string Content { get; set; } = string.Empty;
+    public string? SenderName { get; set; }
+    public string? Role { get; set; }
 }

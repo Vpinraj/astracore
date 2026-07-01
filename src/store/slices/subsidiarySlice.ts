@@ -23,6 +23,13 @@ const subsidiarySlice = createSlice({
     },
     allocateFundsRequest: (state, action: PayloadAction<{ subsidiaryId: string; amount: number }>) => {},
     allocateFundsSuccess: (state) => {},
+    updateSubsidiaryRequest: (state, action: PayloadAction<{ id: string; data: any }>) => {},
+    updateSubsidiarySuccess: (state, action: PayloadAction<Subsidiary>) => {
+      const index = state.items.findIndex(s => s.id === action.payload.id);
+      if (index !== -1) {
+        state.items[index] = action.payload;
+      }
+    },
   },
 });
 
@@ -32,6 +39,8 @@ export const {
   createSubsidiarySuccess,
   allocateFundsRequest,
   allocateFundsSuccess,
+  updateSubsidiaryRequest,
+  updateSubsidiarySuccess,
 } = subsidiarySlice.actions;
 
 export default subsidiarySlice.reducer;

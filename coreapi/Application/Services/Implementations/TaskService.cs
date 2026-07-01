@@ -185,6 +185,48 @@ public class TaskService : ITaskService
         }
     }
 
+    public async Task UpdateTaskAsync(string taskId, string title, string description, string assignedAgentId)
+    {
+        var task = await _taskRepository.GetByIdAsync(taskId);
+        if (task == null) throw new EntityNotFoundException(nameof(TaskItem), taskId);
+
+        bool agentChanged = task.AssignedAgentId != assignedAgentId;
+
+        task.Title = title;
+        task.Description = description;
+
+        if (agentChanged)
+        {
+            if (!string.IsNullOrWhiteSpace(assignedAgentId))
+            {
+                var agent = await _agentRepository.GetByIdAsync(assignedAgentId);
+                if (agent == null)
+                {
+                    throw new EntityNotFoundException(nameof(Agent), assignedAgentId);
+                }
+            }
+            task.AssignedAgentId = assignedAgentId;
+        }
+
+        await _taskRepository.SaveAsync(task);
+
+        if (agentChanged && task.Status.Equals("pending", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(assignedAgentId))
+        {
+            var newAgent = await _agentRepository.GetByIdAsync(assignedAgentId);
+            if (newAgent != null && newAgent.Status.Equals("idle", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    await StartTaskAsync(task.Id);
+                }
+                catch (Exception)
+                {
+                    // Ignore
+                }
+            }
+        }
+    }
+
     public async Task ResumeTaskAsync(string taskId, string answer)
     {
         var task = await _taskRepository.GetByIdAsync(taskId);
@@ -206,5 +248,32 @@ public class TaskService : ITaskService
             var processor = scope.ServiceProvider.GetRequiredService<ITaskProcessorService>();
             await processor.ProcessTaskAsync(resumeTaskId);
         });
+    }
+
+    public async Task AddDiscussionMessageAsync(string taskId, string content, string senderName, string role = "user")
+    {
+        var task = await _taskRepository.GetByIdAsync(taskId);
+        if (task == null) throw new EntityNotFoundException(nameof(TaskItem), taskId);
+
+        var msg = new TaskDiscussionMessage
+        {
+            Role = role,
+            Content = content,
+            SenderName = senderName,
+            Timestamp = DateTimeOffset.UtcNow.ToString("O")
+        };
+
+        task.Discussion.Add(msg);
+        await _taskRepository.SaveAsync(task);
+
+        if (role.Equals("user", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = System.Threading.Tasks.Task.Run(async () =>
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var processor = scope.ServiceProvider.GetRequiredService<ITaskProcessorService>();
+                await processor.ProcessDiscussionAsync(taskId);
+            });
+        }
     }
 }

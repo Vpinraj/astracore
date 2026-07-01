@@ -23,6 +23,8 @@ import { CatalogBoard } from './components/CatalogBoard';
 import { RoleRegistry } from './components/RoleRegistry';
 import { BalanceSheet } from './components/BalanceSheet';
 import { ExecutionLogsPage } from './pages/ExecutionLogsPage';
+import { TeamChatPage } from './pages/TeamChatPage';
+import { MemoryBookPage } from './pages/MemoryBookPage';
 import type { Subsidiary } from './types';
 
 function DashboardLayout() {
@@ -137,19 +139,23 @@ function DashboardLayout() {
             {teamSubTab === 'directory' ? <EmployeeDirectory /> : <OrgTree />}
           </div>
         );
+      case 'teamchat':
+        return <TeamChatPage />;
+      case 'memory_book':
+        return <MemoryBookPage />;
       default:
         return <Overview />;
     }
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-100 font-sans select-none transition-colors duration-300">
+    <div className="flex h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-100 font-sans transition-colors duration-300">
       <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} />
 
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-gradient-to-tr from-zinc-950 via-zinc-900/90 to-purple-950/10 transition-colors duration-300 min-w-0">
-        <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 pt-16 md:pt-6">
+        <div className={`flex-1 ${activeTab === 'teamchat' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'} px-4 md:px-8 py-4 md:py-6 pt-16 md:pt-6`}>
           <Header showMetrics={activeTab === 'overview'} />
-          <div className="pb-24 md:pb-16 animate-in fade-in duration-300">
+          <div className={`animate-in fade-in duration-300 flex-1 min-h-0 ${activeTab === 'teamchat' ? 'flex flex-col mt-2' : 'pb-24 md:pb-16'}`}>
             {renderTabContent()}
           </div>
         </div>

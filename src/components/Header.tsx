@@ -57,7 +57,7 @@ export const Header: React.FC<HeaderProps> = ({ showMetrics = true }) => {
   ];
 
   return (
-    <header className="mb-6 md:mb-8">
+    <header className={showMetrics ? "mb-6 md:mb-8" : "mb-2 md:mb-3"}>
       {/* Top Banner Row */}
       <div className="flex justify-between items-center mb-5 md:mb-6 pl-10 md:pl-0">
         <div>

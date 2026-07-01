@@ -63,6 +63,42 @@ public class AstraCorePlugin
         return $"Task '{title}' created successfully with ID {task.Id}";
     }
 
+    [KernelFunction("GetTasks")]
+    [Description("Gets a list of all tasks in the system. Use this to find the ID of a task before fetching its details.")]
+    public async Task<string> GetTasksAsync(
+        [Description("Optional. Filter by assigned agent ID.")] string assignedAgentId = "",
+        [Description("Optional. Filter by task status (e.g., 'pending', 'in_progress', 'completed').")] string status = "")
+    {
+        var tasks = await _taskService.GetAllAsync();
+        
+        if (!string.IsNullOrWhiteSpace(assignedAgentId))
+        {
+            tasks = tasks.Where(t => t.AssignedAgentId == assignedAgentId).ToList();
+        }
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            tasks = tasks.Where(t => t.Status.Equals(status, System.StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        if (!tasks.Any()) return "No tasks found matching the criteria.";
+
+        var summary = tasks.Select(t => $"- ID: {t.Id} | Title: {t.Title} | Status: {t.Status} | Progress: {t.Progress}% | Agent: {t.AssignedAgentId ?? "Unassigned"}");
+        return "Tasks:\n" + string.Join("\n", summary);
+    }
+
+    [KernelFunction("GetTaskDetails")]
+    [Description("Fetches the full details of a specific task, including its title, description, status, progress, and execution logs/output.")]
+    public async Task<string> GetTaskDetailsAsync(
+        [Description("The exact ID of the task to fetch (e.g., 'task-123')")] string taskId)
+    {
+        var tasks = await _taskService.GetAllAsync();
+        var task = tasks.FirstOrDefault(t => t.Id.Equals(taskId, System.StringComparison.OrdinalIgnoreCase));
+        if (task == null) return $"Task with ID '{taskId}' not found.";
+
+        var outputData = string.IsNullOrWhiteSpace(task.Output) ? string.Join("\n", task.Logs) : task.Output;
+        return $"Task ID: {task.Id}\nTitle: {task.Title}\nDescription: {task.Description}\nStatus: {task.Status}\nProgress: {task.Progress}%\nAssigned Agent ID: {task.AssignedAgentId ?? "Unassigned"}\n\n--- Output/Logs ---\n{outputData}";
+    }
+
     [KernelFunction("CreateTransaction")]
     [Description("Records a financial transaction (Expense, Sale, Procurement) for a subsidiary.")]
     public async Task<string> CreateTransactionAsync(

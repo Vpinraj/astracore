@@ -40,6 +40,29 @@ public class SubsidiaryController : ControllerBase
         return Ok(sub);
     }
 
+    [HttpPut("subsidiary/{id}")]
+    public async Task<ActionResult<Subsidiary>> UpdateSubsidiary(string id, [FromBody] UpdateSubsidiaryRequest req)
+    {
+        if (req == null || string.IsNullOrWhiteSpace(req.Name))
+        {
+            return BadRequest("Invalid subsidiary name");
+        }
+        var sub = await _subsidiaryService.UpdateSubsidiaryAsync(
+            id,
+            req.Name,
+            req.Industry,
+            req.ColorTheme,
+            req.LogoUrl,
+            req.Website,
+            req.Email,
+            req.Phone,
+            req.Description,
+            req.Address,
+            req.BankDetails
+        );
+        return Ok(sub);
+    }
+
     [HttpPost("allocate-funds")]
     public async Task<IActionResult> AllocateFunds([FromBody] AllocateFundsRequest req)
     {

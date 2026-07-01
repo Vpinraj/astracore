@@ -25,6 +25,17 @@ export const api = {
     if (!response.ok) throw new Error('Failed to create subsidiary');
     return response.json();
   },
+
+  updateSubsidiary: async (id: string, data: any) => {
+    const response = await fetch(`${API_BASE_URL}/simulation/subsidiary/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to update subsidiary');
+    return response.json();
+  },
+
   createAgent: async (data: any) => {
     const response = await fetch(`${API_BASE_URL}/simulation/agent`, {
       method: 'POST',
@@ -61,6 +72,15 @@ export const api = {
     if (!response.ok) throw new Error('Failed to start task');
     return response.json();
   },
+  updateTask: async (taskId: string, data: any) => {
+    const response = await fetch(`${API_BASE_URL}/simulation/task/${taskId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to update task');
+    return response.json();
+  },
   deleteTask: async (taskId: string) => {
     const response = await fetch(`${API_BASE_URL}/simulation/task/${taskId}`, { method: 'DELETE' });
     if (!response.ok) throw new Error('Failed to delete task');
@@ -73,6 +93,20 @@ export const api = {
       body: JSON.stringify({ answer }),
     });
     if (!response.ok) throw new Error('Failed to answer task');
+    return response.json();
+  },
+  postTaskDiscussionMessage: async (taskId: string, content: string, senderName: string = 'User', role: string = 'user') => {
+    const response = await fetch(`${API_BASE_URL}/simulation/task/${taskId}/discussion`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, senderName, role }),
+    });
+    if (!response.ok) throw new Error('Failed to post discussion message');
+    return response.json();
+  },
+  getTaskDiscussion: async (taskId: string) => {
+    const response = await fetch(`${API_BASE_URL}/simulation/task/${taskId}/discussion`);
+    if (!response.ok) throw new Error('Failed to fetch task discussion');
     return response.json();
   },
   allocateFunds: async (subsidiaryId: string, amount: number) => {
@@ -284,5 +318,107 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch execution logs');
     return response.json();
   },
+
+  // ── Team Chat (Group Chat) ────────────────────────────────────────────────
+  fetchTeamChats: async () => {
+    const response = await fetch(`${API_BASE_URL}/teamchat`);
+    if (!response.ok) throw new Error('Failed to fetch team chats');
+    return response.json();
+  },
+  createTeamChat: async (data: { name: string; participantIds: string[] }) => {
+    const response = await fetch(`${API_BASE_URL}/teamchat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to create team chat');
+    return response.json();
+  },
+  fetchTeamChatMessages: async (chatId: string) => {
+    const response = await fetch(`${API_BASE_URL}/teamchat/${chatId}/messages`);
+    if (!response.ok) throw new Error('Failed to fetch team chat messages');
+    return response.json();
+  },
+  sendTeamChatMessage: async (chatId: string, data: { senderId: string; senderName: string; senderType: string; content: string }) => {
+    const response = await fetch(`${API_BASE_URL}/teamchat/${chatId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to send team chat message');
+    return response.json();
+  },
+  deleteTeamChat: async (chatId: string) => {
+    const response = await fetch(`${API_BASE_URL}/teamchat/${chatId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete team chat');
+    return response.ok;
+  },
+
+  // ── Memory Book ───────────────────────────────────────────────────────────
+
+  /** Fetch all memory entries, optionally filtered by ownerId and/or category. */
+  fetchMemories: async (ownerId?: string, category?: string) => {
+    const params = new URLSearchParams();
+    if (ownerId)   params.set('ownerId', ownerId);
+    if (category)  params.set('category', category);
+    const url = `${API_BASE_URL}/memory-book${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch memories');
+    return response.json();
+  },
+
+  /** Create a new memory entry (user-authored). */
+  createMemory: async (data: {
+    ownerId: string;
+    ownerName: string;
+    audience: string;
+    category: string;
+    key: string;
+    value: string;
+    source?: string;
+    pinned?: boolean;
+  }) => {
+    const response = await fetch(`${API_BASE_URL}/memory-book`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: 'user', pinned: false, ...data }),
+    });
+    if (!response.ok) throw new Error('Failed to create memory');
+    return response.json();
+  },
+
+  /** Update an existing memory entry. */
+  updateMemory: async (id: string, data: {
+    key: string;
+    value: string;
+    category: string;
+    audience: string;
+    pinned: boolean;
+  }) => {
+    const response = await fetch(`${API_BASE_URL}/memory-book/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to update memory');
+    return response.json();
+  },
+
+  /** Delete a memory entry by ID. */
+  deleteMemory: async (id: string) => {
+    const response = await fetch(`${API_BASE_URL}/memory-book/${id}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Failed to delete memory');
+    return response.json();
+  },
+
+  /** Fetch the formatted context snapshot an agent would receive (for debugging). */
+  fetchMemorySnapshot: async (agentId: string) => {
+    const response = await fetch(`${API_BASE_URL}/memory-book/snapshot/${agentId}`);
+    if (!response.ok) throw new Error('Failed to fetch memory snapshot');
+    return response.json();
+  },
 };
+
 

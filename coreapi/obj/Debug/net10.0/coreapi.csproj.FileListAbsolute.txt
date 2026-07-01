@@ -70,3 +70,4 @@
 /Users/vipin/Developer/Works/Astra/Websites/astracore/coreapi/bin/Debug/net10.0/System.Management.dll
 /Users/vipin/Developer/Works/Astra/Websites/astracore/coreapi/bin/Debug/net10.0/System.Numerics.Tensors.dll
 /Users/vipin/Developer/Works/Astra/Websites/astracore/coreapi/bin/Debug/net10.0/runtimes/win/lib/net7.0/System.Management.dll
+/Users/vipin/Developer/Works/Astra/Websites/astracore/coreapi/bin/Debug/net10.0/logs.json

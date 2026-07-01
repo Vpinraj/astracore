@@ -48,6 +48,10 @@ public class KernelProviderService : IKernelProviderService
         );
         builder.Plugins.AddFromObject(astraPlugin, "AstraCore");
 
+        // Register WebSearch Plugin
+        var webSearchPlugin = new WebSearchPlugin();
+        builder.Plugins.AddFromObject(webSearchPlugin, "WebSearch");
+
         return builder.Build();
     }
 }

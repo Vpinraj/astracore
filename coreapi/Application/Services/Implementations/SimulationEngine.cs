@@ -21,6 +21,9 @@ public class SimulationEngine : ISimulationEngine
     private readonly IEmployeeService _employeeService;
     private readonly IRepository<CatalogItem> _catalogRepository;
     private readonly IRepository<RoleBlueprint> _roleBlueprintRepository;
+    private readonly IRepository<GroupChat> _groupChatRepository;
+    private readonly IRepository<GroupChatMessage> _groupChatMessageRepository;
+    private readonly IMemoryBookService _memoryBookService;
     private readonly IServiceProvider _serviceProvider;
 
     private static readonly Dictionary<string, List<string>> AGENT_THOUGHTS = new(StringComparer.OrdinalIgnoreCase)
@@ -108,6 +111,9 @@ public class SimulationEngine : ISimulationEngine
         IEmployeeService employeeService,
         IRepository<CatalogItem> catalogRepository,
         IRepository<RoleBlueprint> roleBlueprintRepository,
+        IRepository<GroupChat> groupChatRepository,
+        IRepository<GroupChatMessage> groupChatMessageRepository,
+        IMemoryBookService memoryBookService,
         IServiceProvider serviceProvider)
     {
         _subsidiaryRepository = subsidiaryRepository;
@@ -120,6 +126,9 @@ public class SimulationEngine : ISimulationEngine
         _employeeService = employeeService;
         _catalogRepository = catalogRepository;
         _roleBlueprintRepository = roleBlueprintRepository;
+        _groupChatRepository = groupChatRepository;
+        _groupChatMessageRepository = groupChatMessageRepository;
+        _memoryBookService = memoryBookService;
         _serviceProvider = serviceProvider;
     }
 
@@ -140,6 +149,9 @@ public class SimulationEngine : ISimulationEngine
         var employees = (await _employeeService.GetAllAsync()).ToList();
         var catalog = (await _catalogRepository.GetAllAsync()).ToList();
         var roles = (await _roleBlueprintRepository.GetAllAsync()).ToList();
+        var groupChats = (await _groupChatRepository.GetAllAsync()).ToList();
+        var groupChatMessages = (await _groupChatMessageRepository.GetAllAsync()).ToList();
+        var memoryBook = (await _memoryBookService.GetAllAsync()).ToList();
 
         return new SimulationState
         {
@@ -151,7 +163,10 @@ public class SimulationEngine : ISimulationEngine
             Leads = leads,
             Employees = employees,
             Catalog = catalog,
-            RoleBlueprints = roles
+            RoleBlueprints = roles,
+            GroupChats = groupChats,
+            GroupChatMessages = groupChatMessages,
+            MemoryBook = memoryBook
         };
     }
 
@@ -228,6 +243,30 @@ public class SimulationEngine : ISimulationEngine
         {
             await _roleBlueprintRepository.SaveAsync(role);
         }
+
+        // 7. Sync GroupChats
+        var currentChats = (await _groupChatRepository.GetAllAsync()).ToList();
+        foreach (var chat in currentChats)
+        {
+            if (!state.GroupChats.Any(c => c.Id == chat.Id))
+                await _groupChatRepository.DeleteAsync(chat.Id);
+        }
+        foreach (var chat in state.GroupChats)
+        {
+            await _groupChatRepository.SaveAsync(chat);
+        }
+
+        // 8. Sync GroupChatMessages
+        var currentChatMsgs = (await _groupChatMessageRepository.GetAllAsync()).ToList();
+        foreach (var msg in currentChatMsgs)
+        {
+            if (!state.GroupChatMessages.Any(m => m.Id == msg.Id))
+                await _groupChatMessageRepository.DeleteAsync(msg.Id);
+        }
+        foreach (var msg in state.GroupChatMessages)
+        {
+            await _groupChatMessageRepository.SaveAsync(msg);
+        }
     }
 
     public async Task<SimulationState> ResetStateAsync()
@@ -252,6 +291,12 @@ public class SimulationEngine : ISimulationEngine
 
         var roles = await _roleBlueprintRepository.GetAllAsync();
         foreach (var item in roles) await _roleBlueprintRepository.DeleteAsync(item.Id);
+
+        var groupChats = await _groupChatRepository.GetAllAsync();
+        foreach (var item in groupChats) await _groupChatRepository.DeleteAsync(item.Id);
+
+        var groupChatMessages = await _groupChatMessageRepository.GetAllAsync();
+        foreach (var item in groupChatMessages) await _groupChatMessageRepository.DeleteAsync(item.Id);
 
         return await SeedDefaultStateAsync();
     }

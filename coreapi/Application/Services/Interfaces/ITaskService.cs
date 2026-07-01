@@ -13,5 +13,7 @@ public interface ITaskService
     Task<TaskItem?> GetByIdAsync(string id);
     Task SaveAsync(TaskItem task);
     Task DeleteAsync(string id);
+    Task UpdateTaskAsync(string taskId, string title, string description, string assignedAgentId);
     Task ResumeTaskAsync(string taskId, string answer);
+    Task AddDiscussionMessageAsync(string taskId, string content, string senderName, string role = "user");
 }

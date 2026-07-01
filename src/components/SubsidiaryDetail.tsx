@@ -5,9 +5,10 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { ProgressBar } from './ui/ProgressBar';
-import { ArrowLeft, Users, Terminal, Plus, DollarSign, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Users, Terminal, Plus, DollarSign, MessageSquare, Edit2 } from 'lucide-react';
 import { CreateAgentModal, CreateTaskModal } from './CreateModals';
 import { CreateTransactionModal } from './CreateTransactionModal';
+import { EditSubsidiaryModal } from './EditSubsidiaryModal';
 import { BalanceSheet } from './BalanceSheet';
 import { openAgentChat } from '../store/slices/agentSlice';
 import type { Subsidiary } from '../types';
@@ -25,6 +26,7 @@ export const SubsidiaryDetail: React.FC<SubsidiaryDetailProps> = ({ subsidiary, 
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<'agents' | 'tasks'>('agents');
 
   const subAgents = agents.filter((a) => a.subsidiaryId === subsidiary.id);
@@ -47,14 +49,25 @@ export const SubsidiaryDetail: React.FC<SubsidiaryDetailProps> = ({ subsidiary, 
   return (
     <div className="space-y-5 md:space-y-6">
       {/* Detail Header bar */}
-      <div className="flex items-center gap-3 md:gap-4">
-        <Button variant="ghost" size="sm" onClick={onClose} className="p-2 border border-zinc-800 shrink-0">
-          <ArrowLeft size={16} />
-        </Button>
-        <div className="min-w-0">
-          <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">Subsidiary detail node</span>
-          <h2 className="text-lg md:text-xl font-bold text-zinc-100 mt-0.5 truncate">{subsidiary.name} Workspace</h2>
+      <div className="flex items-center justify-between gap-3 md:gap-4">
+        <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+          <Button variant="ghost" size="sm" onClick={onClose} className="p-2 border border-zinc-800 shrink-0">
+            <ArrowLeft size={16} />
+          </Button>
+          <div className="min-w-0">
+            <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">Subsidiary detail node</span>
+            <h2 className="text-lg md:text-xl font-bold text-zinc-100 mt-0.5 truncate">{subsidiary.name} Workspace</h2>
+          </div>
         </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setIsEditModalOpen(true)}
+          className="border-zinc-800 shrink-0 flex items-center gap-2"
+        >
+          <Edit2 size={14} />
+          <span className="hidden sm:inline">Edit Details</span>
+        </Button>
       </div>
 
       {/* Finances Overview — 2 cols mobile, 4 cols desktop */}
@@ -379,6 +392,11 @@ export const SubsidiaryDetail: React.FC<SubsidiaryDetailProps> = ({ subsidiary, 
         isOpen={isTxModalOpen}
         onClose={() => setIsTxModalOpen(false)}
         defaultSubsidiaryId={subsidiary.id}
+      />
+      <EditSubsidiaryModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        subsidiary={subsidiary}
       />
     </div>
   );

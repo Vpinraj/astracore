@@ -16,6 +16,19 @@ public record CreateSubsidiaryRequest(
     string? BankDetails = null
 );
 
+public record UpdateSubsidiaryRequest(
+    string Name,
+    string Industry,
+    string? ColorTheme = null,
+    string? LogoUrl = null,
+    string? Website = null,
+    string? Email = null,
+    string? Phone = null,
+    string? Description = null,
+    string? Address = null,
+    string? BankDetails = null
+);
+
 public record HireAgentRequest(
     string Name,
     string Role,

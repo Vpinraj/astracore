@@ -73,6 +73,12 @@ builder.Services.AddSingleton<IRepository<RoleBlueprint>>(sp =>
     new DocumentRepository<RoleBlueprint>(sp.GetRequiredService<IDocumentStore>(), "role_blueprints"));
 builder.Services.AddSingleton<IRepository<HeartbeatLog>>(sp =>
     new DocumentRepository<HeartbeatLog>(sp.GetRequiredService<IDocumentStore>(), "heartbeat_logs"));
+builder.Services.AddSingleton<IRepository<GroupChat>>(sp =>
+    new DocumentRepository<GroupChat>(sp.GetRequiredService<IDocumentStore>(), "group_chats"));
+builder.Services.AddSingleton<IRepository<GroupChatMessage>>(sp =>
+    new DocumentRepository<GroupChatMessage>(sp.GetRequiredService<IDocumentStore>(), "group_chat_messages"));
+builder.Services.AddSingleton<IRepository<MemoryEntry>>(sp =>
+    new DocumentRepository<MemoryEntry>(sp.GetRequiredService<IDocumentStore>(), "memory_book"));
 
 // Register application services
 builder.Services.AddSingleton<ILogService, LogService>();
@@ -85,6 +91,8 @@ builder.Services.AddSingleton<IEmployeeService, EmployeeService>();
 builder.Services.AddSingleton<ISimulationEngine, SimulationEngine>();
 builder.Services.AddSingleton<ITaskProcessorService, TaskProcessorService>();
 builder.Services.AddSingleton<IHeartbeatService, HeartbeatService>();
+builder.Services.AddSingleton<ITeamChatManagerService, TeamChatManagerService>();
+builder.Services.AddSingleton<IMemoryBookService, MemoryBookService>();
 
 // Autonomous heartbeat background worker (IHostedService)
 builder.Services.AddHostedService<AgentHeartbeatWorker>();

@@ -12,6 +12,7 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 
+
 namespace CoreApi.Application.Services.Implementations;
 
 /// <summary>
@@ -32,19 +33,22 @@ public sealed class HeartbeatService : IHeartbeatService
     private readonly ILogService               _activityLog;
     private readonly IKernelProviderService    _kernelProvider;
     private readonly IServiceProvider          _serviceProvider;
+    private readonly IMemoryBookService        _memoryBook;
 
     public HeartbeatService(
         IRepository<Agent>        agentRepo,
         IRepository<HeartbeatLog> logRepo,
         ILogService               activityLog,
         IKernelProviderService    kernelProvider,
-        IServiceProvider          serviceProvider)
+        IServiceProvider          serviceProvider,
+        IMemoryBookService        memoryBook)
     {
-        _agentRepo      = agentRepo;
-        _logRepo        = logRepo;
-        _activityLog    = activityLog;
-        _kernelProvider = kernelProvider;
+        _agentRepo       = agentRepo;
+        _logRepo         = logRepo;
+        _activityLog     = activityLog;
+        _kernelProvider  = kernelProvider;
         _serviceProvider = serviceProvider;
+        _memoryBook      = memoryBook;
     }
 
     // ── Configuration ──────────────────────────────────────────────────────────
@@ -116,9 +120,11 @@ public sealed class HeartbeatService : IHeartbeatService
 
             var kernel = _kernelProvider.CreateKernel(agent.ModelId, agent.SubsidiaryId);
 
-            var systemPrompt = BuildSystemPrompt(agent);
-            var userPrompt   = string.IsNullOrWhiteSpace(agent.HeartbeatInstruction)
-                ? "Perform your autonomous heartbeat self-check. Summarise your current operational status and any proactive observations."
+            // ── Inject Memory Book context ──
+            var memoryContext = await _memoryBook.GetContextSnapshotAsync(agent, ct);
+            var systemPrompt  = BuildSystemPrompt(agent, memoryContext);
+            var userPrompt    = string.IsNullOrWhiteSpace(agent.HeartbeatInstruction)
+                ? "Perform your autonomous heartbeat self-check. Summarise your current operational status and any proactive observations. If you learn something important, persist it using <MEMORY> tags."
                 : agent.HeartbeatInstruction;
 
             var chatHistory = new ChatHistory();
@@ -151,13 +157,13 @@ public sealed class HeartbeatService : IHeartbeatService
 
             // ── Parse created tasks ──
             var taskRegex = new Regex(@"<CREATE_TASK>[\s\S]*?<TITLE>(.*?)</TITLE>[\s\S]*?<DESCRIPTION>(.*?)</DESCRIPTION>[\s\S]*?</CREATE_TASK>", RegexOptions.IgnoreCase);
-            var matches = taskRegex.Matches(response);
-            if (matches.Count > 0)
+            var taskMatches = taskRegex.Matches(response);
+            if (taskMatches.Count > 0)
             {
                 using var scope = _serviceProvider.CreateScope();
                 var taskService = scope.ServiceProvider.GetRequiredService<ITaskService>();
 
-                foreach (Match match in matches)
+                foreach (Match match in taskMatches)
                 {
                     var title = match.Groups[1].Value.Trim();
                     var description = match.Groups[2].Value.Trim();
@@ -169,6 +175,40 @@ public sealed class HeartbeatService : IHeartbeatService
                         "success",
                         agentName: agent.Name);
                 }
+            }
+
+            // ── Parse and persist new memories written by the agent ──
+            var memRegex = new Regex(
+                @"<MEMORY>[\s\S]*?<CATEGORY>(.*?)</CATEGORY>[\s\S]*?<KEY>(.*?)</KEY>[\s\S]*?<VALUE>(.*?)</VALUE>(?:[\s\S]*?<AUDIENCE>(.*?)</AUDIENCE>)?[\s\S]*?</MEMORY>",
+                RegexOptions.IgnoreCase);
+            var memMatches = memRegex.Matches(response);
+            foreach (Match m in memMatches)
+            {
+                var category = m.Groups[1].Value.Trim().ToLower();
+                var key      = m.Groups[2].Value.Trim();
+                var value    = m.Groups[3].Value.Trim();
+                var audience = m.Groups[4].Success && !string.IsNullOrWhiteSpace(m.Groups[4].Value)
+                    ? m.Groups[4].Value.Trim().ToLower()
+                    : agent.Role.ToLower();
+
+                if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value)) continue;
+
+                await _memoryBook.AddAsync(new MemoryEntry
+                {
+                    OwnerId    = agent.Id,
+                    OwnerName  = agent.Name,
+                    Audience   = audience,
+                    Category   = category,
+                    Key        = key,
+                    Value      = value,
+                    Source     = "heartbeat",
+                    Pinned     = false,
+                }, ct);
+
+                await _activityLog.AddLogAsync(
+                    $"[Memory Written] {agent.Name} stored memory: \"{key}\"",
+                    "info",
+                    agentName: agent.Name);
             }
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
@@ -218,17 +258,24 @@ public sealed class HeartbeatService : IHeartbeatService
 
     // ── Private helpers ────────────────────────────────────────────────────────
 
-    private static string BuildSystemPrompt(Agent agent)
+    private static string BuildSystemPrompt(Agent agent, string memoryContext = "")
     {
         var skills = agent.RoleDefinition is not null
             ? string.Join(", ", agent.RoleDefinition.CommonSkills.Take(5))
             : "General AI Capabilities";
 
+        var memorySection = string.IsNullOrWhiteSpace(memoryContext)
+            ? string.Empty
+            : $"""
+
+              {memoryContext}
+              """;
+
         return $"""
                 You are {agent.Name}, an autonomous AI agent with the role of {agent.Role}.
                 Core skills: {skills}.
                 Base instructions: {agent.Instructions}
-
+                {memorySection}
                 You have been woken up by your autonomous heartbeat scheduler.
                 Respond concisely and professionally. Focus on actionable observations.
 
@@ -238,6 +285,15 @@ public sealed class HeartbeatService : IHeartbeatService
                 <DESCRIPTION>Task Description</DESCRIPTION>
                 </CREATE_TASK>
                 You can output this multiple times if you need to create multiple tasks.
+
+                If you learn something important that should be remembered, persist it using:
+                <MEMORY>
+                <CATEGORY>lesson|fact|decision|goal|preference|project|person|company</CATEGORY>
+                <KEY>Short label for this memory</KEY>
+                <VALUE>The full memory content</VALUE>
+                <AUDIENCE>global|role-name|subsidiary-id</AUDIENCE>
+                </MEMORY>
+                You can write multiple memory entries.
                 """;
     }
 }

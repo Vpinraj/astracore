@@ -5,4 +5,5 @@ namespace CoreApi.Application.Services.Interfaces;
 public interface ITaskProcessorService
 {
     Task ProcessTaskAsync(string taskId);
+    Task ProcessDiscussionAsync(string taskId);
 }

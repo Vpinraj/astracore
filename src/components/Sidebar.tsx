@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Building2, Users, Terminal, Cpu, Menu, X, ClipboardList, Target, GitBranch, HelpCircle, Package, FileText } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, Terminal, Cpu, Menu, X, ClipboardList, Target, GitBranch, HelpCircle, Package, FileText, MessageSquare, BookOpen } from 'lucide-react';
 
-export type TabType = 'overview' | 'subsidiaries' | 'transactions' | 'agents' | 'tasks' | 'catalog' | 'questions' | 'terminal' | 'execution_logs' | 'leads' | 'team';
+export type TabType = 'overview' | 'subsidiaries' | 'transactions' | 'agents' | 'tasks' | 'catalog' | 'questions' | 'terminal' | 'execution_logs' | 'leads' | 'team' | 'teamchat' | 'memory_book';
 
 interface SidebarProps {
   activeTab: TabType;
@@ -21,6 +21,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
     { id: 'questions' as TabType, label: 'Agent Doubts', icon: HelpCircle },
     { id: 'leads' as TabType, label: 'Leads CRM', icon: Target },
     { id: 'team' as TabType, label: 'Team & Org', icon: GitBranch },
+    { id: 'teamchat' as TabType, label: 'Team Chat', icon: MessageSquare },
+    { id: 'memory_book' as TabType, label: 'Memory Book', icon: BookOpen },
     { id: 'terminal' as TabType, label: 'System Logs', icon: Terminal },
     { id: 'execution_logs' as TabType, label: 'Execution Logs', icon: FileText },
   ];

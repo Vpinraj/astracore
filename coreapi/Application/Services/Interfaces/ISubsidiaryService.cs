@@ -7,6 +7,7 @@ namespace CoreApi.Application.Services.Interfaces;
 public interface ISubsidiaryService
 {
     Task<Subsidiary> CreateSubsidiaryAsync(string name, string industry, double investment, string? colorTheme = null, string? logoUrl = null, string? website = null, string? email = null, string? phone = null, string? description = null, string? address = null, string? bankDetails = null);
+    Task<Subsidiary> UpdateSubsidiaryAsync(string id, string name, string industry, string? colorTheme = null, string? logoUrl = null, string? website = null, string? email = null, string? phone = null, string? description = null, string? address = null, string? bankDetails = null);
     Task AllocateFundsAsync(string subsidiaryId, double amount);
     Task<IEnumerable<Subsidiary>> GetAllAsync();
     Task<Subsidiary?> GetByIdAsync(string id);

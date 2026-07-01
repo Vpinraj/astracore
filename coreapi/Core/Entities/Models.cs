@@ -128,6 +128,15 @@ public class TaskItem : IEntity
     public string PendingAnswer { get; set; } = string.Empty;
     public string AttachedFileName { get; set; } = string.Empty;
     public string AttachedFileData { get; set; } = string.Empty;
+    public List<TaskDiscussionMessage> Discussion { get; set; } = new();
+}
+
+public class TaskDiscussionMessage
+{
+    public string Role { get; set; } = "user"; // user | agent | system
+    public string Content { get; set; } = string.Empty;
+    public string Timestamp { get; set; } = string.Empty;
+    public string? SenderName { get; set; }
 }
 
 public class ActivityLog : IEntity
@@ -237,6 +246,74 @@ public class RoleBlueprint : IEntity
     public string HeartbeatInstruction { get; set; } = string.Empty;
 }
 
+public class GroupChat : IEntity
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public List<string> ParticipantIds { get; set; } = new();
+    public string CreatedAt { get; set; } = string.Empty; // ISO 8601
+}
+
+public class GroupChatMessage : IEntity
+{
+    public string Id { get; set; } = string.Empty;
+    public string GroupChatId { get; set; } = string.Empty;
+    public string SenderId { get; set; } = string.Empty;
+    public string SenderName { get; set; } = string.Empty;
+    public string SenderType { get; set; } = "user"; // user | agent | employee
+    public string Content { get; set; } = string.Empty;
+    public string Timestamp { get; set; } = string.Empty; // ISO 8601
+}
+
+// ─── Memory Book ──────────────────────────────────────────────────────────────
+/// <summary>
+/// A single persisted memory entry in an agent's (or the company's global) memory book.
+/// Supports Option C: per-agent ownership + audience-based visibility (role / subsidiary / global).
+/// </summary>
+[BsonIgnoreExtraElements]
+public class MemoryEntry : IEntity
+{
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>agentId for agent-owned entries, "global" for company-wide entries.</summary>
+    public string OwnerId { get; set; } = "global";
+
+    /// <summary>Display name of the owner (agent name or "Company").</summary>
+    public string OwnerName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Who can read this memory:
+    ///   "global"       → all agents
+    ///   role name      → only agents of that role (e.g. "ceo", "finance")
+    ///   subsidiaryId   → only agents in that subsidiary
+    ///   agentId        → private to that specific agent
+    /// </summary>
+    public string Audience { get; set; } = "global";
+
+    /// <summary>
+    /// Category tag: preference | project | goal | lesson | decision | fact | person | company
+    /// </summary>
+    public string Category { get; set; } = "fact";
+
+    /// <summary>Short label / headline for this memory (e.g. "Preferred output format").</summary>
+    public string Key { get; set; } = string.Empty;
+
+    /// <summary>The actual content of the memory.</summary>
+    public string Value { get; set; } = string.Empty;
+
+    /// <summary>Who created this entry: "agent" | "user" | "heartbeat" | "task".</summary>
+    public string Source { get; set; } = "user";
+
+    /// <summary>Pinned memories are always injected into the agent's system prompt regardless of token budget.</summary>
+    public bool Pinned { get; set; } = false;
+
+    /// <summary>How many times this memory has been read by an agent (for relevance scoring).</summary>
+    public int AccessCount { get; set; } = 0;
+
+    public string CreatedAt { get; set; } = string.Empty;   // ISO 8601
+    public string UpdatedAt { get; set; } = string.Empty;   // ISO 8601
+}
+
 public class SimulationState
 {
     public List<Subsidiary> Subsidiaries { get; set; } = new();
@@ -248,4 +325,7 @@ public class SimulationState
     public List<Employee> Employees { get; set; } = new();
     public List<CatalogItem> Catalog { get; set; } = new();
     public List<RoleBlueprint> RoleBlueprints { get; set; } = new();
+    public List<GroupChat> GroupChats { get; set; } = new();
+    public List<GroupChatMessage> GroupChatMessages { get; set; } = new();
+    public List<MemoryEntry> MemoryBook { get; set; } = new();
 }

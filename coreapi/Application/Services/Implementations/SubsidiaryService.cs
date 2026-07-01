@@ -110,6 +110,40 @@ public class SubsidiaryService : ISubsidiaryService
         return subsidiary;
     }
 
+    public async Task<Subsidiary> UpdateSubsidiaryAsync(string id, string name, string industry, string? colorTheme = null, string? logoUrl = null, string? website = null, string? email = null, string? phone = null, string? description = null, string? address = null, string? bankDetails = null)
+    {
+        var subsidiary = await _subsidiaryRepository.GetByIdAsync(id);
+        if (subsidiary == null)
+        {
+            throw new EntityNotFoundException(nameof(Subsidiary), id);
+        }
+
+        subsidiary.Name = name;
+        subsidiary.Industry = industry;
+        
+        if (!string.IsNullOrEmpty(colorTheme))
+        {
+            var match = COLORS.FirstOrDefault(c => c.Color.Contains(colorTheme));
+            if (match.Color != null)
+            {
+                subsidiary.Color = match.Color;
+                subsidiary.BorderColor = match.Border;
+                subsidiary.TextColor = match.Text;
+            }
+        }
+
+        subsidiary.LogoUrl = logoUrl ?? subsidiary.LogoUrl;
+        subsidiary.Website = website ?? subsidiary.Website;
+        subsidiary.Email = email ?? subsidiary.Email;
+        subsidiary.Phone = phone ?? subsidiary.Phone;
+        subsidiary.Description = description ?? subsidiary.Description;
+        subsidiary.Address = address ?? subsidiary.Address;
+        subsidiary.BankDetails = bankDetails ?? subsidiary.BankDetails;
+
+        await _subsidiaryRepository.SaveAsync(subsidiary);
+        return subsidiary;
+    }
+
     public async Task AllocateFundsAsync(string subsidiaryId, double amount)
     {
         var subsidiary = await _subsidiaryRepository.GetByIdAsync(subsidiaryId);

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CoreApi.Core.Entities;
 using CoreApi.Core.Repositories;
@@ -18,17 +19,20 @@ public class TaskProcessorService : ITaskProcessorService
     private readonly IRepository<CoreApi.Core.Entities.Agent> _agentRepository;
     private readonly IKernelProviderService _kernelProviderService;
     private readonly ILogService _logService;
+    private readonly IMemoryBookService _memoryBook;
 
     public TaskProcessorService(
         IRepository<TaskItem> taskRepository,
         IRepository<CoreApi.Core.Entities.Agent> agentRepository,
         IKernelProviderService kernelProviderService,
-        ILogService logService)
+        ILogService logService,
+        IMemoryBookService memoryBook)
     {
         _taskRepository = taskRepository;
         _agentRepository = agentRepository;
         _kernelProviderService = kernelProviderService;
         _logService = logService;
+        _memoryBook = memoryBook;
     }
 
     public async Task ProcessTaskAsync(string taskId)
@@ -50,14 +54,32 @@ public class TaskProcessorService : ITaskProcessorService
 
             var kernel = _kernelProviderService.CreateKernel(agent.ModelId, task.SubsidiaryId);
 
+            // ── Inject Memory Book context ──
+            var memoryContext = await _memoryBook.GetContextSnapshotAsync(agent);
+            var memorySection = string.IsNullOrWhiteSpace(memoryContext) ? string.Empty
+                : $"\n\n{memoryContext}\n\nIf you learn something important during this task, you can persist it using:\n<MEMORY>\n<CATEGORY>lesson|fact|decision|goal|preference|project|person|company</CATEGORY>\n<KEY>Short label</KEY>\n<VALUE>The memory content</VALUE>\n<AUDIENCE>global|role-name|subsidiary-id</AUDIENCE>\n</MEMORY>";
+
+            var agentInstructions = $"You are {agent.Name}, a {agent.Role}. {agent.Instructions}{memorySection}\nProcess the following assigned task and output your final deliverable.";
+
             var skAgent = new ChatCompletionAgent
             {
                 Name = agent.Name.Replace(" ", "_"),
-                Instructions = $"You are {agent.Name}, a {agent.Role}. {agent.Instructions}\nProcess the following assigned task and output your final deliverable.",
+                Instructions = agentInstructions,
                 Kernel = kernel,
                 Arguments = new KernelArguments(new OpenAIPromptExecutionSettings 
                 { 
                     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto() 
+                })
+            };
+
+            var skAgentFallback = new ChatCompletionAgent
+            {
+                Name = agent.Name.Replace(" ", "_"),
+                Instructions = agentInstructions,
+                Kernel = kernel,
+                Arguments = new KernelArguments(new OpenAIPromptExecutionSettings 
+                { 
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.None() 
                 })
             };
 
@@ -147,7 +169,27 @@ public class TaskProcessorService : ITaskProcessorService
             }
             catch (Exception ex)
             {
-                outputText += $"\nError during LLM execution: {ex.Message}";
+                // If it fails with invalid tool call arguments or similar, try a fallback without tools
+                if (ex.Message.Contains("400") || ex.Message.Contains("invalid_request_error"))
+                {
+                    try
+                    {
+                        var fallbackOutput = "";
+                        await foreach (var message in skAgentFallback.InvokeAsync(chatHistory))
+                        {
+                            fallbackOutput += message.Message.Content;
+                        }
+                        outputText += fallbackOutput;
+                    }
+                    catch (Exception fallbackEx)
+                    {
+                        outputText += $"\nError during LLM execution (Fallback): {fallbackEx.Message}";
+                    }
+                }
+                else
+                {
+                    outputText += $"\nError during LLM execution: {ex.Message}";
+                }
             }
 
             if (!isBlocked)
@@ -161,10 +203,159 @@ public class TaskProcessorService : ITaskProcessorService
                     await _taskRepository.SaveAsync(task);
                 }
             }
+
+            // ── Parse and persist memories written by the agent during task execution ──
+            var memRegex = new Regex(
+                @"<MEMORY>[\s\S]*?<CATEGORY>(.*?)<\/CATEGORY>[\s\S]*?<KEY>(.*?)<\/KEY>[\s\S]*?<VALUE>(.*?)<\/VALUE>(?:[\s\S]*?<AUDIENCE>(.*?)<\/AUDIENCE>)?[\s\S]*?<\/MEMORY>",
+                RegexOptions.IgnoreCase);
+            foreach (System.Text.RegularExpressions.Match m in memRegex.Matches(outputText))
+            {
+                var category = m.Groups[1].Value.Trim().ToLower();
+                var key      = m.Groups[2].Value.Trim();
+                var value    = m.Groups[3].Value.Trim();
+                var audience = m.Groups[4].Success && !string.IsNullOrWhiteSpace(m.Groups[4].Value)
+                    ? m.Groups[4].Value.Trim().ToLower()
+                    : agent.Role.ToLower();
+                if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value)) continue;
+                await _memoryBook.AddAsync(new MemoryEntry
+                {
+                    OwnerId   = agent.Id,
+                    OwnerName = agent.Name,
+                    Audience  = audience,
+                    Category  = category,
+                    Key       = key,
+                    Value     = value,
+                    Source    = "task",
+                });
+                await _logService.AddLogAsync($"[Memory Written] {agent.Name} stored memory during task: \"{key}\"", "info", agentName: agent.Name);
+            }
         }
         catch (Exception ex)
         {
             await _logService.AddLogAsync($"TaskProcessorService Error: {ex.Message}", "warning");
+        }
+    }
+
+    public async Task ProcessDiscussionAsync(string taskId)
+    {
+        try
+        {
+            await _logService.AddLogAsync($"ProcessDiscussionAsync started for task: {taskId}", "info");
+            
+            var task = await _taskRepository.GetByIdAsync(taskId);
+            if (task == null || !task.Discussion.Any()) 
+            {
+                await _logService.AddLogAsync($"ProcessDiscussionAsync aborted: task null or empty discussion", "warning");
+                return;
+            }
+
+            var agent = await _agentRepository.GetByIdAsync(task.AssignedAgentId);
+            if (agent == null)
+            {
+                await _logService.AddLogAsync($"ProcessDiscussionAsync aborted: agent null", "warning");
+                return;
+            }
+
+            var kernel = _kernelProviderService.CreateKernel(agent.ModelId, task.SubsidiaryId);
+
+            var skAgent = new ChatCompletionAgent
+            {
+                Name = agent.Name.Replace(" ", "_"),
+                Instructions = $"You are {agent.Name}, a {agent.Role}. {agent.Instructions}\nYou are discussing a task with the user. The task was '{task.Title}'. Provide helpful answers based on the task description and output.",
+                Kernel = kernel,
+                Arguments = new KernelArguments(new OpenAIPromptExecutionSettings 
+                { 
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto() 
+                })
+            };
+
+            var skAgentFallback = new ChatCompletionAgent
+            {
+                Name = agent.Name.Replace(" ", "_"),
+                Instructions = $"You are {agent.Name}, a {agent.Role}. {agent.Instructions}\nYou are discussing a task with the user. The task was '{task.Title}'. Provide helpful answers based on the task description and output.",
+                Kernel = kernel,
+                Arguments = new KernelArguments(new OpenAIPromptExecutionSettings 
+                { 
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.None() 
+                })
+            };
+
+            var chatHistory = new ChatHistory();
+            chatHistory.Add(new ChatMessageContent(AuthorRole.System, $"Task Description: {task.Description}\n\nTask Output: {task.Output}"));
+
+            foreach (var msg in task.Discussion)
+            {
+                if (msg.Role.Equals("user", StringComparison.OrdinalIgnoreCase))
+                {
+                    chatHistory.Add(new ChatMessageContent(AuthorRole.User, msg.Content));
+                }
+                else
+                {
+                    chatHistory.Add(new ChatMessageContent(AuthorRole.Assistant, msg.Content));
+                }
+            }
+
+            string outputText = string.Empty;
+
+            try
+            {
+                await foreach (var message in skAgent.InvokeAsync(chatHistory))
+                {
+                    if (message.Message != null && message.Message.Content != null)
+                    {
+                        outputText += message.Message.Content;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message.Contains("400") || ex.Message.Contains("invalid_request_error"))
+                {
+                    try
+                    {
+                        var fallbackOutput = "";
+                        await foreach (var message in skAgentFallback.InvokeAsync(chatHistory))
+                        {
+                            if (message.Message != null && message.Message.Content != null)
+                            {
+                                fallbackOutput += message.Message.Content;
+                            }
+                        }
+                        outputText += fallbackOutput;
+                    }
+                    catch (Exception fallbackEx)
+                    {
+                        outputText += $"\nError during LLM execution (Fallback): {fallbackEx.Message}";
+                    }
+                }
+                else
+                {
+                    outputText += $"\nError during LLM execution: {ex.Message}";
+                }
+            }
+
+            // Reload the task to avoid overriding any concurrent changes
+            task = await _taskRepository.GetByIdAsync(taskId);
+            if (task != null)
+            {
+                task.Discussion.Add(new TaskDiscussionMessage
+                {
+                    Role = "assistant",
+                    Content = outputText.Trim(),
+                    SenderName = agent.Name,
+                    Timestamp = DateTimeOffset.UtcNow.ToString("O")
+                });
+                await _taskRepository.SaveAsync(task);
+                await _logService.AddLogAsync($"ProcessDiscussionAsync saved agent response for task {taskId}. Content length: {outputText.Length}", "info");
+            }
+            else
+            {
+                await _logService.AddLogAsync($"ProcessDiscussionAsync failed to reload task {taskId}", "warning");
+            }
+        }
+        catch (Exception ex)
+        {
+            await _logService.AddLogAsync($"TaskProcessorService Error (ProcessDiscussionAsync): {ex.Message} \n {ex.StackTrace}", "warning");
         }
     }
 }
